@@ -4,7 +4,7 @@ NetRCA is an AI-assisted network root cause analysis and incident response proje
 
 ## Current scope
 
-Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. The health response describes the API process only. The UI contains no live network metrics or incident data.
+Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. The health response describes the API process only. The UI contains no live network metrics or incident data.
 
 ```
 backend/    FastAPI app, configuration, and pytest tests
@@ -12,6 +12,7 @@ frontend/   Next.js app, API client, styling, and Vitest tests
 Instruction/ Original project specifications and design preview
 supabase/  Supabase CLI configuration for the linked project
 database/  Phase 2 database guide, local-only demo seed, and validation
+network/   Phase 3 Mininet setup, usage, and test guide
 ```
 
 ## Prerequisites
@@ -20,7 +21,7 @@ database/  Phase 2 database guide, local-only demo seed, and validation
 - Node.js 20 or newer and npm
 - Git for version control
 
-Mininet needs Linux networking support; WSL2 with Ubuntu is recommended for its later setup phase. Mininet is not needed to run Phase 1 on Windows.
+Mininet needs Linux networking support. Ubuntu 26.04.1 LTS under WSL2 is installed on this workstation, and the Phase 3 lab passed real Mininet/Open vSwitch connectivity tests. See the [Phase 3 network guide](network/README.md) for setup and test results.
 
 ## Backend
 
@@ -77,7 +78,11 @@ The Supabase CLI project configuration is in `supabase/config.toml`. To link a f
 
 See [database/README.md](database/README.md) for migration, local setup, guarded demo seed, RLS, validation, and rollback instructions. The migration is `supabase/migrations/20261012000100_initial_schema.sql`; after reviewing the linked project and a dry run, apply it from the repository root with `npx supabase db push --linked --skip-vault`. Development fixture rows are never included in that push. The database validation suite can test migration behavior inside a rollback transaction and is documented in the database guide.
 
+## Network simulation
+
+Simulation is disabled by default. From `backend/`, `python -m app.network.cli environment` reports whether this interpreter can run Mininet. A supported Linux environment with Mininet, Open vSwitch and root privilege is required to start the lab. The [network guide](network/README.md) explains the real smoke test, single-worker local API, security gates and integration test. On Windows, the simulator reports unavailable; the existing API health endpoint remains API-only.
+
 ## Limitations
 
-Network simulation, monitoring, anomaly detection, incident workflows, RCA, Gemini, authentication, and fault injection behavior are planned for later phases. An API connection indicator confirms only that the FastAPI health endpoint responded. It does not indicate database or network health.
+The Mininet lab was verified locally under Ubuntu WSL2; its simulation still requires explicit opt-in and root privileges. Monitoring, anomaly detection, incident workflows, RCA, Gemini, authentication, and fault injection behavior are planned for later phases. An API connection indicator confirms only that the FastAPI health endpoint responded. It does not indicate database or network health.
 # NETRCA-network-monitoring

@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -8,8 +9,10 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.health import router as health_router
+from app.api.network import router as network_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
+from app.network.manager import NetworkManager
 
 logger = logging.getLogger("netrca")
 
@@ -24,13 +27,27 @@ def error_response(status_code: int, code: str, message: str) -> JSONResponse:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
-    app = FastAPI(title="NetRCA API", version="0.1.0")
+    manager = NetworkManager(enabled=settings.simulation_enabled)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        try:
+            yield
+        finally:
+            try:
+                manager.close(timeout=settings.simulation_operation_timeout_seconds)
+            except Exception:
+                logger.error("Network cleanup failed during application shutdown")
+
+    app = FastAPI(title="NetRCA API", version="0.1.0", lifespan=lifespan)
+    app.state.network_manager = manager
+    app.state.settings = settings
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
         allow_credentials=False,
-        allow_methods=["GET"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Accept", "Content-Type", "X-NetRCA-Local-Control"],
     )
 
     @app.middleware("http")
@@ -62,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return error_response(500, "INTERNAL_ERROR", "An internal error occurred")
 
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(network_router, prefix="/api/v1")
     return app
 
 

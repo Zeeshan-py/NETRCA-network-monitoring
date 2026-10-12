@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     cors_origins: str = ""
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     database_url: SecretStr | None = Field(default=None, validation_alias="DATABASE_URL")
+    simulation_enabled: bool = False
+    simulation_operation_timeout_seconds: int = Field(default=20, ge=1, le=60)
 
     @field_validator("cors_origins")
     @classmethod
