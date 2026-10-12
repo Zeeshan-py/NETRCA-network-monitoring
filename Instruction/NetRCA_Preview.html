@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetRCA — AI Network Root Cause Analysis</title>
+<style>
+:root{
+  --bg:#07111f;--panel:#0d1b2d;--panel2:#10233a;--border:#1e3854;
+  --text:#e8f0f8;--muted:#8fa5ba;--accent:#4da3ff;--green:#2dd4a7;
+  --yellow:#f5c451;--red:#ff6174;--purple:#9b87ff;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);
+font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+.app{display:flex;min-height:100vh}.sidebar{width:245px;background:#06101c;border-right:1px solid var(--border);
+padding:22px 15px;position:fixed;top:0;bottom:0}
+.logo{font-size:22px;font-weight:800;padding:0 10px 26px}.logo span{color:var(--accent)}
+.nav{display:grid;gap:5px}.nav button{background:none;border:0;color:#9fb2c5;text-align:left;padding:11px 13px;border-radius:9px;
+font-size:14px;cursor:pointer}.nav button.active,.nav button:hover{background:#10263e;color:white}
+.main{margin-left:245px;width:calc(100% - 245px);padding:25px 30px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
+h1{font-size:25px;margin:0 0 5px}.sub{color:var(--muted);font-size:13px}.status{background:#0c2a26;border:1px solid #1b5d50;color:#5be0bd;padding:8px 12px;border-radius:20px;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:17px}
+.label{color:var(--muted);font-size:12px}.value{font-size:26px;font-weight:750;margin:7px 0}.delta{font-size:11px}.up{color:var(--red)}.good{color:var(--green)}
+.layout{display:grid;grid-template-columns:1.55fr 1fr;gap:18px}.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px}
+.panel h2{font-size:15px;margin:0 0 15px}.row{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #183049;padding:11px 0}
+.row:last-child{border:0}.badge{font-size:10px;padding:4px 7px;border-radius:5px;font-weight:700}.critical{background:#451c25;color:#ff8997}.warning{background:#46391b;color:#f7d46c}.ok{background:#123c34;color:#5de0bf}.info{background:#172d4a;color:#79baff}
+.topology{height:340px;background:#091827;border-radius:9px;position:relative;overflow:hidden}
+svg{width:100%;height:100%}.node{cursor:pointer}.node circle{fill:#112d49;stroke:#4da3ff;stroke-width:2}.node text{fill:#dce9f5;font-size:12px;text-anchor:middle}.node.bad circle{stroke:var(--red);fill:#391c28}.link{stroke:#2d587b;stroke-width:2}.link.bad{stroke:var(--red);stroke-dasharray:7 5}
+.incident{border-left:3px solid var(--red);padding-left:12px}.incident strong{display:block;font-size:13px}.small{font-size:11px;color:var(--muted);margin-top:4px}
+.ai{background:linear-gradient(135deg,#111f39,#101b31);border:1px solid #314d78}.ai-title{color:#9fc4ff;font-weight:700;font-size:12px;margin-bottom:10px}
+.ai p{font-size:13px;line-height:1.65;color:#c8d6e5;margin:7px 0}.chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.step{background:#122942;border:1px solid #234766;padding:8px 10px;border-radius:7px;font-size:11px}.arrow{color:#5e86a8}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px;border-bottom:1px solid #19324b}th{color:#89a2b8;font-weight:600}
+.bar{height:7px;background:#162b40;border-radius:9px;overflow:hidden;margin-top:7px}.bar i{display:block;height:100%;background:var(--accent);border-radius:9px}
+.view{display:none}.view.active{display:block}.search{background:#0b1929;border:1px solid var(--border);color:white;padding:8px 11px;border-radius:7px;width:180px}
+footer{color:#617a91;text-align:center;font-size:10px;padding:8px}
+@media(max-width:900px){.sidebar{width:190px}.main{margin-left:190px;width:calc(100% - 190px)}.grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="logo">Net<span>RCA</span></div>
+  <div class="nav">
+    <button class="active" onclick="show('overview',this)">◈ Overview</button>
+    <button onclick="show('topology',this)">⌘ Topology</button>
+    <button onclick="show('incidents',this)">⚠ Incidents</button>
+    <button onclick="show('anomalies',this)">◉ Anomalies</button>
+    <button onclick="show('metrics',this)">▥ Metrics</button>
+    <button onclick="show('logs',this)">≡ Logs & Events</button>
+    <button onclick="show('rca',this)">⌁ Root Cause</button>
+    <button onclick="show('faults',this)">⚡ Fault Injection</button>
+    <button onclick="show('reports',this)">▤ Reports</button>
+  </div>
+  <div style="position:absolute;bottom:22px;left:25px;right:25px;font-size:11px;color:#607991">
+    AI Network Operations<br><br>Mininet • FastAPI • Gemini • Supabase
+  </div>
+</aside>
+
+<main class="main">
+<div class="top">
+  <div><h1 id="title">Network Overview</h1><div class="sub">AI-assisted network monitoring and root cause analysis</div></div>
+  <div class="status">● SIMULATION ONLINE</div>
+</div>
+
+<section id="overview" class="view active">
+<div class="grid">
+ <div class="card"><div class="label">NETWORK HEALTH</div><div class="value">82%</div><div class="delta up">↓ 12% from baseline</div></div>
+ <div class="card"><div class="label">ACTIVE INCIDENTS</div><div class="value">1</div><div class="delta up">1 critical incident</div></div>
+ <div class="card"><div class="label">ANOMALIES</div><div class="value">7</div><div class="delta up">3 new in last 5 min</div></div>
+ <div class="card"><div class="label">DEVICES ONLINE</div><div class="value">11 / 12</div><div class="delta good">91.7% availability</div></div>
+</div>
+<div class="layout">
+ <div>
+  <div class="panel"><h2>Live Network Topology</h2><div class="topology"><svg viewBox="0 0 700 330">
+    <line class="link" x1="110" y1="165" x2="250" y2="85"/><line class="link bad" x1="250" y1="85" x2="430" y2="165"/>
+    <line class="link" x1="110" y1="165" x2="250" y2="250"/><line class="link" x1="430" y1="165" x2="580" y2="90"/>
+    <line class="link" x1="430" y1="165" x2="580" y2="250"/>
+    <g class="node" transform="translate(110 165)"><circle r="28"/><text y="4">R1</text><text y="48">Router</text></g>
+    <g class="node bad" transform="translate(250 85)"><circle r="28"/><text y="4">S1</text><text y="48">Switch</text></g>
+    <g class="node" transform="translate(250 250)"><circle r="28"/><text y="4">S2</text><text y="48">Switch</text></g>
+    <g class="node bad" transform="translate(430 165)"><circle r="28"/><text y="4">R2</text><text y="48">Router</text></g>
+    <g class="node" transform="translate(580 90)"><circle r="25"/><text y="4">APP</text><text y="43">Server</text></g>
+    <g class="node" transform="translate(580 250)"><circle r="25"/><text y="4">DNS</text><text y="43">Service</text></g>
+  </svg></div></div>
+  <div class="panel"><h2>Failure Chain</h2>
+   <div class="chain"><div class="step">R2 interface failure</div><div class="arrow">→</div><div class="step">Packet loss 34%</div><div class="arrow">→</div><div class="step">Latency 187ms</div><div class="arrow">→</div><div class="step">App timeout</div><div class="arrow">→</div><div class="step">Service degraded</div></div>
+  </div>
+ </div>
+ <div>
+  <div class="panel incident"><h2>Active Incident</h2>
+   <strong>INC-1042 — R2 connectivity failure</strong>
+   <div class="small">Critical • Started 2 minutes ago • Investigating</div>
+   <div class="row"><span>Probable root cause</span><b style="color:#ff8794">R2 eth0 failure</b></div>
+   <div class="row"><span>Confidence</span><b>94%</b></div>
+   <div class="row"><span>Affected services</span><b>2</b></div>
+   <div class="row"><span>Affected devices</span><b>3</b></div>
+  </div>
+  <div class="panel ai"><div class="ai-title">✦ GEMINI AI ANALYSIS</div>
+   <p><b>What happened?</b> R2's eth0 interface stopped forwarding traffic. Packet loss increased immediately afterward, followed by a large latency spike and application timeouts.</p>
+   <p><b>Why R2?</b> The topology shows R2 is on the dependency path for the affected application. The interface event also precedes the downstream symptoms.</p>
+   <p><b>Recommended:</b> Inspect R2 eth0 state, verify the R2–S1 link, then confirm application recovery after restoration.</p>
+  </div>
+ </div>
+</div>
+</section>
+
+<section id="topology" class="view">
+<div class="panel"><h2>Interactive Network Topology</h2><div class="topology"><svg viewBox="0 0 900 420">
+<line class="link" x1="120" y1="210" x2="300" y2="100"/><line class="link" x1="120" y1="210" x2="300" y2="320"/>
+<line class="link bad" x1="300" y1="100" x2="520" y2="210"/><line class="link" x1="300" y1="320" x2="520" y2="210"/>
+<line class="link" x1="520" y1="210" x2="740" y2="110"/><line class="link" x1="520" y1="210" x2="740" y2="310"/>
+<g class="node" transform="translate(120 210)"><circle r="34"/><text y="4">R1</text><text y="55">Gateway</text></g>
+<g class="node" transform="translate(300 100)"><circle r="34"/><text y="4">S1</text><text y="55">Switch</text></g>
+<g class="node" transform="translate(300 320)"><circle r="34"/><text y="4">S2</text><text y="55">Switch</text></g>
+<g class="node bad" transform="translate(520 210)"><circle r="34"/><text y="4">R2</text><text y="55">Root Cause</text></g>
+<g class="node" transform="translate(740 110)"><circle r="30"/><text y="4">APP</text><text y="50">Server</text></g>
+<g class="node" transform="translate(740 310)"><circle r="30"/><text y="4">DNS</text><text y="50">Service</text></g>
+</svg></div></div>
+</section>
+
+<section id="incidents" class="view">
+<div class="panel"><h2>Incidents</h2><input class="search" placeholder="Search incidents...">
+<table><tr><th>ID</th><th>Title</th><th>Severity</th><th>Status</th><th>Root Cause</th><th>Started</th></tr>
+<tr><td>INC-1042</td><td>R2 connectivity failure</td><td><span class="badge critical">CRITICAL</span></td><td>Investigating</td><td>R2 eth0 failure</td><td>00:18</td></tr>
+<tr><td>INC-1041</td><td>High DNS latency</td><td><span class="badge warning">MEDIUM</span></td><td>Resolved</td><td>DNS overload</td><td>Yesterday</td></tr>
+<tr><td>INC-1039</td><td>Packet loss on S2</td><td><span class="badge warning">HIGH</span></td><td>Closed</td><td>Link congestion</td><td>Sep 30</td></tr>
+</table></div>
+</section>
+
+<section id="anomalies" class="view">
+<div class="panel"><h2>Detected Anomalies</h2>
+<table><tr><th>Time</th><th>Resource</th><th>Metric</th><th>Value</th><th>Score</th><th>Severity</th></tr>
+<tr><td>00:19:31</td><td>R2 / eth0</td><td>Packet Loss</td><td>34%</td><td>0.97</td><td><span class="badge critical">CRITICAL</span></td></tr>
+<tr><td>00:19:33</td><td>R2</td><td>Latency</td><td>187 ms</td><td>0.94</td><td><span class="badge critical">HIGH</span></td></tr>
+<tr><td>00:19:36</td><td>APP</td><td>Response Time</td><td>4.8 s</td><td>0.88</td><td><span class="badge warning">HIGH</span></td></tr>
+<tr><td>00:19:39</td><td>DNS</td><td>Timeout Rate</td><td>21%</td><td>0.81</td><td><span class="badge warning">MEDIUM</span></td></tr>
+</table></div></section>
+
+<section id="metrics" class="view">
+<div class="grid"><div class="card"><div class="label">LATENCY</div><div class="value">187 ms</div><div class="delta up">+163 ms</div><div class="bar"><i style="width:88%"></i></div></div>
+<div class="card"><div class="label">PACKET LOSS</div><div class="value">34%</div><div class="delta up">+34%</div><div class="bar"><i style="width:72%"></i></div></div>
+<div class="card"><div class="label">THROUGHPUT</div><div class="value">41 Mbps</div><div class="delta up">−28 Mbps</div><div class="bar"><i style="width:41%"></i></div></div>
+<div class="card"><div class="label">AVAILABILITY</div><div class="value">91.7%</div><div class="delta up">−8.3%</div><div class="bar"><i style="width:92%"></i></div></div></div>
+<div class="panel"><h2>Recent Metric Samples</h2><table><tr><th>Time</th><th>Device</th><th>Latency</th><th>Loss</th><th>Status</th></tr>
+<tr><td>00:19:39</td><td>R2</td><td>187 ms</td><td>34%</td><td><span class="badge critical">ABNORMAL</span></td></tr>
+<tr><td>00:19:20</td><td>R2</td><td>163 ms</td><td>28%</td><td><span class="badge warning">DEGRADED</span></td></tr>
+<tr><td>00:18:50</td><td>R2</td><td>31 ms</td><td>0%</td><td><span class="badge ok">NORMAL</span></td></tr></table></div></section>
+
+<section id="logs" class="view"><div class="panel"><h2>Logs & Events</h2>
+<table><tr><th>Time</th><th>Severity</th><th>Source</th><th>Message</th></tr>
+<tr><td>00:19:30</td><td><span class="badge critical">ERROR</span></td><td>R2</td><td>eth0 interface is DOWN</td></tr>
+<tr><td>00:19:31</td><td><span class="badge critical">EVENT</span></td><td>Monitor</td><td>Packet loss threshold exceeded</td></tr>
+<tr><td>00:19:33</td><td><span class="badge warning">WARNING</span></td><td>R2</td><td>Latency exceeded baseline by 680%</td></tr>
+<tr><td>00:19:36</td><td><span class="badge warning">WARNING</span></td><td>APP</td><td>Upstream request timeout</td></tr>
+<tr><td>00:19:39</td><td><span class="badge critical">EVENT</span></td><td>Incident Engine</td><td>INC-1042 opened</td></tr>
+</table></div></section>
+
+<section id="rca" class="view"><div class="layout">
+<div class="panel"><h2>Root Cause Analysis — INC-1042</h2>
+<div class="row"><span>Candidate 1</span><b style="color:#ff7e8d">R2 eth0 failure — 94%</b></div>
+<div class="row"><span>Candidate 2</span><b>R2–S1 link congestion — 31%</b></div>
+<div class="row"><span>Candidate 3</span><b>Application overload — 12%</b></div>
+<h2 style="margin-top:20px">Evidence</h2>
+<div class="row"><span>① Interface failure happened first</span><span class="badge critical">STRONG</span></div>
+<div class="row"><span>② Packet loss followed within 1 sec</span><span class="badge critical">STRONG</span></div>
+<div class="row"><span>③ R2 is on affected service path</span><span class="badge info">GRAPH</span></div>
+<div class="row"><span>④ App timeout occurred downstream</span><span class="badge info">TEMPORAL</span></div>
+</div>
+<div class="panel ai"><div class="ai-title">✦ EXPLAINABLE RCA</div>
+<p>The system does not treat packet loss and application timeout as independent failures. It correlates their timing and topology dependency.</p><p>The earliest high-confidence event is the R2 eth0 failure. Subsequent anomalies occur on resources that depend on R2, making the interface failure the strongest candidate root cause.</p></div>
+</div></section>
+
+<section id="faults" class="view"><div class="panel"><h2>Controlled Fault Injection</h2>
+<p class="sub" style="margin-bottom:18px">Demo-only controls for the isolated Mininet simulation.</p>
+<div class="grid">
+<div class="card"><div class="label">INTERFACE FAILURE</div><div class="value">R2 eth0</div><button onclick="alert('Demo: R2 eth0 failure injected. Monitoring pipeline will detect the resulting symptoms.')">Inject Fault</button></div>
+<div class="card"><div class="label">PACKET LOSS</div><div class="value">30%</div><button onclick="alert('Demo: 30% packet loss injected on R2-S1.')">Inject Fault</button></div>
+<div class="card"><div class="label">HIGH LATENCY</div><div class="value">200ms</div><button onclick="alert('Demo: high latency injected on R2-S1.')">Inject Fault</button></div>
+<div class="card"><div class="label">SERVER OVERLOAD</div><div class="value">APP-01</div><button onclick="alert('Demo: APP-01 overload injected.')">Inject Fault</button></div>
+</div>
+<style>button{background:#143454;color:#dcecff;border:1px solid #2c587d;border-radius:6px;padding:8px 12px;cursor:pointer}</style>
+</div></section>
+
+<section id="reports" class="view"><div class="panel"><h2>Incident Report Preview</h2>
+<div class="ai"><div class="ai-title">INC-1042 — NETWORK INCIDENT REPORT</div>
+<p><b>Summary:</b> A simulated R2 interface failure caused downstream packet loss, latency increase, and application timeout.</p>
+<p><b>Root Cause:</b> R2 eth0 interface failure (94% confidence).</p>
+<p><b>Impact:</b> 3 devices and 2 services affected during the incident window.</p>
+<p><b>Evidence:</b> Interface failure preceded the correlated network and application anomalies.</p>
+<p><b>Recommendation:</b> Inspect interface state, verify link connectivity, restore the interface, and validate application recovery.</p>
+</div></div></section>
+
+<footer>NetRCA Demo UI • Dummy data for project visualization • No real network is controlled</footer>
+</main>
+</div>
+<script>
+const titles={overview:'Network Overview',topology:'Network Topology',incidents:'Incident Management',anomalies:'Anomaly Detection',metrics:'Network Metrics',logs:'Logs & Events',rca:'Root Cause Analysis',faults:'Fault Injection',reports:'Incident Reports'};
+function show(id,btn){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');
+document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.getElementById('title').textContent=titles[id];}
+</script>
+</body>
+</html>

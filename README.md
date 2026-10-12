@@ -4,12 +4,14 @@ NetRCA is an AI-assisted network root cause analysis and incident response proje
 
 ## Current scope
 
-Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. The health response describes the API process only. The UI contains no live network metrics or incident data.
+Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. The health response describes the API process only. The UI contains no live network metrics or incident data.
 
 ```
 backend/    FastAPI app, configuration, and pytest tests
 frontend/   Next.js app, API client, styling, and Vitest tests
 Instruction/ Original project specifications and design preview
+supabase/  Supabase CLI configuration for the linked project
+database/  Phase 2 database guide, local-only demo seed, and validation
 ```
 
 ## Prerequisites
@@ -63,10 +65,19 @@ The backend reads `backend/.env` or process environment variables. The frontend 
 | `NETRCA_CORS_ORIGINS` | Backend | Comma-separated browser origins allowed to call the API; set to the frontend origin |
 | `NETRCA_LOG_LEVEL` | Backend | Application log level |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend | Browser-accessible API base URL, including `/api/v1` |
+| `SUPABASE_URL` | Backend | Supabase project API URL for later database integration |
+| `SUPABASE_PUBLISHABLE_KEY` | Backend | Publishable Data API key; not a database password |
+| `DATABASE_URL` | Backend | PostgreSQL connection string, kept server-side |
 
 If the frontend runs on a different origin, update `NETRCA_CORS_ORIGINS` accordingly. Restart the frontend after changing its environment file. Never put future Gemini keys or Supabase service credentials in a `NEXT_PUBLIC_` variable.
 
+The Supabase CLI project configuration is in `supabase/config.toml`. To link a fresh checkout to the remote project, run `npx supabase login` and `npx supabase link --project-ref <project-ref>` from the repository root. CLI authentication is separate from the publishable API key. The backend does not run database queries on startup; use `python -m app.db.check` from `backend/` to verify the configured connection.
+
+## Database setup
+
+See [database/README.md](database/README.md) for migration, local setup, guarded demo seed, RLS, validation, and rollback instructions. The migration is `supabase/migrations/20261012000100_initial_schema.sql`; after reviewing the linked project and a dry run, apply it from the repository root with `npx supabase db push --linked --skip-vault`. Development fixture rows are never included in that push. The database validation suite can test migration behavior inside a rollback transaction and is documented in the database guide.
+
 ## Limitations
 
-Network simulation, database storage, monitoring, anomaly detection, incident management, RCA, Gemini, authentication, and fault injection are planned for later phases. An API connection indicator confirms only that the FastAPI health endpoint responded. It does not indicate network health.
+Network simulation, monitoring, anomaly detection, incident workflows, RCA, Gemini, authentication, and fault injection behavior are planned for later phases. An API connection indicator confirms only that the FastAPI health endpoint responded. It does not indicate database or network health.
 # NETRCA-network-monitoring
