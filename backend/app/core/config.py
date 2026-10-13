@@ -23,6 +23,18 @@ class Settings(BaseSettings):
     topology_writes_enabled: bool = False
     pipeline_writes_enabled: bool = False
     fault_injection_enabled: bool = False
+    anomaly_writes_enabled: bool = False
+    anomaly_latency_ms: float = Field(default=100, gt=0, le=10000)
+    anomaly_packet_loss_percent: float = Field(default=5, gt=0, le=100)
+    anomaly_min_availability_percent: float = Field(default=99, gt=0, le=100)
+    anomaly_error_delta: int = Field(default=1, ge=1, le=10000)
+    anomaly_max_age_minutes: int = Field(default=60, ge=1, le=1440)
+    anomaly_history_hours: int = Field(default=24, ge=1, le=168)
+    anomaly_max_history: int = Field(default=100, ge=20, le=200)
+    anomaly_baseline_min_samples: int = Field(default=20, ge=10, le=100)
+    anomaly_ml_enabled: bool = True
+    anomaly_model_min_samples: int = Field(default=50, ge=30, le=200)
+    anomaly_model_contamination: float = Field(default=0.05, ge=0.01, le=0.2)
 
     @field_validator("cors_origins")
     @classmethod
