@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     simulation_enabled: bool = False
     simulation_operation_timeout_seconds: int = Field(default=20, ge=1, le=60)
     topology_writes_enabled: bool = False
+    pipeline_writes_enabled: bool = False
 
     @field_validator("cors_origins")
     @classmethod
