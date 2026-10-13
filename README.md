@@ -4,7 +4,7 @@ NetRCA is an AI-assisted network root cause analysis and incident response proje
 
 ## Current scope
 
-Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. The health response describes the API process only. The UI contains no live network metrics or incident data.
+Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. Phase 4 adds validated device/link graph and PostgreSQL topology services. The health response describes the API process only. The UI contains no live network metrics or incident data.
 
 ```
 backend/    FastAPI app, configuration, and pytest tests
@@ -13,6 +13,7 @@ Instruction/ Original project specifications and design preview
 supabase/  Supabase CLI configuration for the linked project
 database/  Phase 2 database guide, local-only demo seed, and validation
 network/   Phase 3 Mininet setup, usage, and test guide
+topology/  Phase 4 topology engine guide and validation report
 ```
 
 ## Prerequisites

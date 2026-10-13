@@ -10,9 +10,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.health import router as health_router
 from app.api.network import router as network_router
+from app.api.topology import router as topology_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.network.manager import NetworkManager
+from app.topology.store import TopologyStore
 
 logger = logging.getLogger("netrca")
 
@@ -41,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="NetRCA API", version="0.1.0", lifespan=lifespan)
     app.state.network_manager = manager
+    app.state.topology_store = TopologyStore(settings)
     app.state.settings = settings
     app.add_middleware(
         CORSMiddleware,
@@ -80,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(network_router, prefix="/api/v1")
+    app.include_router(topology_router, prefix="/api/v1")
     return app
 
 

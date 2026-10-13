@@ -4,12 +4,14 @@ from ipaddress import IPv6Address, ip_address
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request
+from typing import Literal
 from fastapi.responses import JSONResponse
 
 from app.core.config import Settings
 from app.network.errors import NetworkError
 from app.network.manager import NetworkManager
 from app.network.models import ConnectivityResponse, OperationResponse, StatusResponse, TopologyResponse
+from app.db.connection import DatabaseUnavailable
 
 router = APIRouter(tags=["network"])
 
@@ -78,10 +80,23 @@ def network_status(request: Request):
 
 
 @router.get("/topology", response_model=TopologyResponse)
-def topology(request: Request):
+def topology(request: Request, source: Literal["live", "stored"] = "live"):
     denied = _local_only(request, control=False)
     if denied:
         return denied
+    if source == "stored":
+        try:
+            graph = request.app.state.topology_store.load()
+            validation = graph.validate()
+            if not validation.valid:
+                return _error(409, "INVALID_TOPOLOGY", "Stored topology failed validation")
+            return JSONResponse(content={"success": True, "data": {
+                "nodes": [node.model_dump(mode="json") for node in graph.devices],
+                "links": [link.model_dump(mode="json") for link in graph.links],
+                "components": [[str(item) for item in group] for group in validation.components],
+            }})
+        except DatabaseUnavailable:
+            return _error(503, "DATABASE_UNAVAILABLE", "Topology storage is unavailable")
     try:
         return TopologyResponse(data=_manager(request).get_topology())
     except NetworkError as error:
