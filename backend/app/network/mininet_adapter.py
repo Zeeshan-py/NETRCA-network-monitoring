@@ -7,6 +7,8 @@ from app.network.models import ConnectivityView, DeviceView, LinkView, TopologyV
 from app.network.topology import HOST_NAMES, LINKS, NODES, TOPOLOGY_NAME, build_mininet_topology
 from app.monitoring.models import MonitoringSnapshot, ProbeReading
 from app.monitoring.service import capture, probe
+from app.faults.adapter import apply as apply_fault_to_lab, restore as restore_fault_in_lab
+from app.faults.models import FaultRequest
 
 
 class MininetAdapter:
@@ -118,3 +120,13 @@ class MininetAdapter:
         if self._net is None:
             raise NetworkNotRunning("Network is not running")
         return probe(self._net, source, destination, count=count, timeout_seconds=timeout_seconds)
+
+    def apply_fault(self, request: FaultRequest) -> dict:
+        if self._net is None:
+            raise NetworkNotRunning("Network is not running")
+        return apply_fault_to_lab(self._net, request)
+
+    def restore_fault(self, state: dict) -> None:
+        if self._net is None:
+            raise NetworkNotRunning("Network is not running")
+        restore_fault_in_lab(self._net, state)

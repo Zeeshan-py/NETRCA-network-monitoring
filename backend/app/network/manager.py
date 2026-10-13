@@ -20,6 +20,8 @@ class NetworkAdapter(Protocol):
     def test_connectivity(self, timeout: int) -> ConnectivityView: ...
     def monitor_snapshot(self) -> MonitoringSnapshot: ...
     def probe_hosts(self, source: str, destination: str, count: int, timeout_seconds: int) -> ProbeReading: ...
+    def apply_fault(self, request: object) -> dict: ...
+    def restore_fault(self, state: dict) -> None: ...
 
 
 class NetworkManager:
@@ -47,6 +49,29 @@ class NetworkManager:
         self._started_at: datetime | None = None
         self._device_count = 0
         self._link_count = 0
+        self._before_stop: Callable[[NetworkAdapter], None] | None = None
+        self._after_stop: Callable[[], None] | None = None
+        self._stop_failed: Callable[[], None] | None = None
+
+    def set_fault_hooks(self, before_stop: Callable[[NetworkAdapter], None], after_stop: Callable[[], None],
+                        stop_failed: Callable[[], None] | None = None) -> None:
+        self._before_stop = before_stop
+        self._after_stop = after_stop
+        self._stop_failed = stop_failed
+
+    def _stop_adapter(self) -> None:
+        if self._adapter is None:
+            return
+        if self._before_stop is not None:
+            self._before_stop(self._adapter)
+        try:
+            self._adapter.stop()
+        except Exception:
+            if self._stop_failed is not None:
+                self._stop_failed()
+            raise
+        if self._after_stop is not None:
+            self._after_stop()
 
     def check_environment(self) -> EnvironmentReport:
         if not self._enabled:
@@ -151,7 +176,7 @@ class NetworkManager:
 
         def action():
             if self._adapter is not None:
-                self._adapter.stop()
+                self._stop_adapter()
             with self._mutex:
                 self._adapter = None
                 self._state = "STOPPED"
@@ -169,7 +194,7 @@ class NetworkManager:
 
         def action():
             if self._adapter is not None:
-                self._adapter.stop()
+                self._stop_adapter()
             with self._mutex:
                 self._adapter = None
                 self._started_at = None
@@ -215,14 +240,14 @@ class NetworkManager:
 
         return self._queue("CONNECTIVITY_TEST", "RUNNING", action)
 
-    def _observe(self, name: str, action: Callable[[NetworkAdapter], object]) -> Future:
+    def _observe(self, name: str, action: Callable[[NetworkAdapter], object], *, allow_failed: bool = False) -> Future:
         """Serialize read-only observations without marking the lab failed."""
         with self._mutex:
             if self._closed:
                 raise NetworkUnavailable("Network manager is closed")
             if self._busy:
                 raise OperationBusy("Another network operation is in progress")
-            if self._state != "RUNNING" or self._adapter is None:
+            if (self._state != "RUNNING" and not (allow_failed and self._state == "FAILED")) or self._adapter is None:
                 self._ensure_ready()
                 raise NetworkNotRunning("Network is not running")
             adapter = self._adapter
@@ -258,6 +283,9 @@ class NetworkManager:
     def monitor_snapshot(self) -> Future:
         return self._observe("MONITOR_SNAPSHOT", lambda adapter: adapter.monitor_snapshot())
 
+    def fault_action(self, name: str, action: Callable[[NetworkAdapter], object]) -> Future:
+        return self._observe(name, action, allow_failed=name == "FAULT_RESTORE")
+
     def probe_hosts(self, source: str, destination: str, *, count: int = 2, timeout_seconds: int = 2) -> Future:
         if source not in HOST_NAMES or destination not in HOST_NAMES or source == destination:
             raise InvalidProbeTarget("Probe requires two distinct known Mininet hosts")
@@ -276,7 +304,7 @@ class NetworkManager:
                 pass
         with self._mutex:
             if self._adapter is not None and not self._busy:
-                self._adapter.stop()
+                self._stop_adapter()
                 self._adapter = None
                 self._state = "STOPPED"
             self._closed = True
