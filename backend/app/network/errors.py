@@ -36,3 +36,13 @@ class ShutdownFailure(NetworkError):
 class ConnectivityFailure(NetworkError):
     code = "CONNECTIVITY_FAILED"
     http_status = 503
+
+
+class MonitoringFailure(NetworkError):
+    code = "MONITORING_FAILED"
+    http_status = 503
+
+
+class InvalidProbeTarget(NetworkError):
+    code = "INVALID_PROBE_TARGET"
+    http_status = 400

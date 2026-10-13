@@ -5,6 +5,8 @@ from pathlib import Path
 from app.network.errors import NetworkAlreadyRunning, NetworkNotRunning, ShutdownFailure, StartupFailure
 from app.network.models import ConnectivityView, DeviceView, LinkView, TopologyView
 from app.network.topology import HOST_NAMES, LINKS, NODES, TOPOLOGY_NAME, build_mininet_topology
+from app.monitoring.models import MonitoringSnapshot, ProbeReading
+from app.monitoring.service import capture, probe
 
 
 class MininetAdapter:
@@ -106,3 +108,13 @@ class MininetAdapter:
             raise StartupFailure("Expected hosts are missing")
         loss = float(self._net.pingAll(timeout=timeout))
         return ConnectivityView(hosts=list(HOST_NAMES), packet_loss_percent=loss, connected=loss == 0)
+
+    def monitor_snapshot(self) -> MonitoringSnapshot:
+        if self._net is None:
+            raise NetworkNotRunning("Network is not running")
+        return capture(self._net)
+
+    def probe_hosts(self, source: str, destination: str, count: int, timeout_seconds: int) -> ProbeReading:
+        if self._net is None:
+            raise NetworkNotRunning("Network is not running")
+        return probe(self._net, source, destination, count=count, timeout_seconds=timeout_seconds)

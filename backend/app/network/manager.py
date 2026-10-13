@@ -5,10 +5,12 @@ from threading import RLock
 from typing import Callable, Protocol
 
 from app.network.environment import check_environment
-from app.network.errors import ConnectivityFailure, NetworkAlreadyRunning, NetworkError, NetworkNotRunning, NetworkUnavailable, OperationBusy, ShutdownFailure, StartupFailure
+from app.network.errors import ConnectivityFailure, InvalidProbeTarget, MonitoringFailure, NetworkAlreadyRunning, NetworkError, NetworkNotRunning, NetworkUnavailable, OperationBusy, ShutdownFailure, StartupFailure
 from app.network.mininet_adapter import MininetAdapter
 from app.network.models import ConnectivityView, EnvironmentReport, NetworkStatus, TopologyView
 from app.network.topology import TOPOLOGY_NAME
+from app.network.topology import HOST_NAMES
+from app.monitoring.models import MonitoringSnapshot, ProbeReading
 
 
 class NetworkAdapter(Protocol):
@@ -16,6 +18,8 @@ class NetworkAdapter(Protocol):
     def stop(self) -> None: ...
     def topology(self) -> TopologyView: ...
     def test_connectivity(self, timeout: int) -> ConnectivityView: ...
+    def monitor_snapshot(self) -> MonitoringSnapshot: ...
+    def probe_hosts(self, source: str, destination: str, count: int, timeout_seconds: int) -> ProbeReading: ...
 
 
 class NetworkManager:
@@ -210,6 +214,56 @@ class NetworkManager:
             return result
 
         return self._queue("CONNECTIVITY_TEST", "RUNNING", action)
+
+    def _observe(self, name: str, action: Callable[[NetworkAdapter], object]) -> Future:
+        """Serialize read-only observations without marking the lab failed."""
+        with self._mutex:
+            if self._closed:
+                raise NetworkUnavailable("Network manager is closed")
+            if self._busy:
+                raise OperationBusy("Another network operation is in progress")
+            if self._state != "RUNNING" or self._adapter is None:
+                self._ensure_ready()
+                raise NetworkNotRunning("Network is not running")
+            adapter = self._adapter
+            self._busy = True
+            self._operation = name
+            self._detail = None
+
+            def run():
+                try:
+                    result = action(adapter)
+                    with self._mutex:
+                        self._last_result = "FAILED" if isinstance(result, ProbeReading) and result.status != "REACHABLE" else "SUCCEEDED"
+                    return result
+                except NetworkError as error:
+                    with self._mutex:
+                        self._last_result = "FAILED"
+                        self._detail = error.code
+                    raise
+                except Exception:
+                    with self._mutex:
+                        self._last_result = "FAILED"
+                        self._detail = "MONITORING_FAILED"
+                    raise MonitoringFailure("Monitoring operation failed") from None
+                finally:
+                    with self._mutex:
+                        self._busy = False
+                        self._operation = None
+                        self._last_operation = name
+
+            self._active_future = self._executor.submit(run)
+            return self._active_future
+
+    def monitor_snapshot(self) -> Future:
+        return self._observe("MONITOR_SNAPSHOT", lambda adapter: adapter.monitor_snapshot())
+
+    def probe_hosts(self, source: str, destination: str, *, count: int = 2, timeout_seconds: int = 2) -> Future:
+        if source not in HOST_NAMES or destination not in HOST_NAMES or source == destination:
+            raise InvalidProbeTarget("Probe requires two distinct known Mininet hosts")
+        if count < 1 or count > 3 or timeout_seconds < 1 or timeout_seconds > 2:
+            raise InvalidProbeTarget("Probe parameters are outside allowed bounds")
+        return self._observe("MONITOR_PROBE", lambda adapter: adapter.probe_hosts(source, destination, count, timeout_seconds))
 
     def close(self, timeout: float = 10) -> None:
         """Shutdown hook; never cleans up resources owned by other Mininet users."""

@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.health import router as health_router
 from app.api.network import router as network_router
+from app.api.monitoring import router as monitoring_router
 from app.api.topology import router as topology_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
@@ -83,6 +84,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(network_router, prefix="/api/v1")
+    app.include_router(monitoring_router, prefix="/api/v1")
     app.include_router(topology_router, prefix="/api/v1")
     return app
 
