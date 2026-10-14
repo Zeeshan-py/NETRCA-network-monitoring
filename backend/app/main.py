@@ -14,6 +14,7 @@ from app.api.monitoring import router as monitoring_router
 from app.api.pipeline import router as pipeline_router
 from app.api.faults import router as faults_router
 from app.api.anomalies import router as anomalies_router
+from app.api.incidents import router as incidents_router
 from app.api.topology import router as topology_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
@@ -22,6 +23,7 @@ from app.faults.controller import FaultController
 from app.faults.store import FaultStore
 from app.anomaly.service import AnomalyService
 from app.anomaly.store import AnomalyStore
+from app.correlation.store import IncidentStore
 from app.pipeline.store import EvidenceStore
 from app.topology.store import TopologyStore
 
@@ -60,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.fault_controller = fault_controller
     app.state.anomaly_store = AnomalyStore(settings)
     app.state.anomaly_service = AnomalyService(settings, app.state.anomaly_store)
+    app.state.incident_store = IncidentStore(settings)
     app.state.settings = settings
     app.add_middleware(
         CORSMiddleware,
@@ -103,6 +106,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(pipeline_router, prefix="/api/v1")
     app.include_router(faults_router, prefix="/api/v1")
     app.include_router(anomalies_router, prefix="/api/v1")
+    app.include_router(incidents_router, prefix="/api/v1")
     app.include_router(topology_router, prefix="/api/v1")
     return app
 

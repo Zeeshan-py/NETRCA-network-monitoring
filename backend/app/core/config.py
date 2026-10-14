@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     pipeline_writes_enabled: bool = False
     fault_injection_enabled: bool = False
     anomaly_writes_enabled: bool = False
+    correlation_writes_enabled: bool = False
+    correlation_window_seconds: int = Field(default=300, ge=1, le=3600)
+    correlation_max_age_minutes: int = Field(default=1440, ge=1, le=10080)
     anomaly_latency_ms: float = Field(default=100, gt=0, le=10000)
     anomaly_packet_loss_percent: float = Field(default=5, gt=0, le=100)
     anomaly_min_availability_percent: float = Field(default=99, gt=0, le=100)
