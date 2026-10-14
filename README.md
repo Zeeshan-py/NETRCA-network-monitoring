@@ -4,7 +4,7 @@ NetRCA is an AI-assisted network root cause analysis and incident response proje
 
 ## Current scope
 
-Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. Phase 4 adds validated device/link graph and PostgreSQL topology services. Phase 5 adds on-demand, read-only Mininet monitoring snapshots and bounded host-pair probes. Phase 6 adds controlled ingestion of observed metrics, structured logs and state events into PostgreSQL, with paginated history. Phase 7 adds opt-in, local-only fault injection with tracked restoration in the Mininet lab. Phase 8 adds explainable threshold, baseline and optional Isolation Forest detection on validated metrics. Phase 9 adds deterministic event/anomaly correlation into stored incidents. The health response describes the API process only. The UI contains no live network metrics or incident data.
+Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. Phase 4 adds validated device/link graph and PostgreSQL topology services. Phase 5 adds on-demand, read-only Mininet monitoring snapshots and bounded host-pair probes. Phase 6 adds controlled ingestion of observed metrics, structured logs and state events into PostgreSQL, with paginated history. Phase 7 adds opt-in, local-only fault injection with tracked restoration in the Mininet lab. Phase 8 adds explainable threshold, baseline and optional Isolation Forest detection on validated metrics. Phase 9 adds deterministic event/anomaly correlation into stored incidents. Phase 10 adds read-only NetworkX structural analysis and stored incident topology context. The health response describes the API process only. The UI contains no live network metrics or incident data.
 
 ```
 backend/    FastAPI app, configuration, and pytest tests
@@ -13,7 +13,7 @@ Instruction/ Original project specifications and design preview
 supabase/  Supabase CLI configuration for the linked project
 database/  Phase 2 database guide, local-only demo seed, and validation
 network/   Phase 3 Mininet setup, usage, and test guide
-topology/  Phase 4 topology engine guide and validation report
+topology/  Phase 4 topology engine and Phase 10 graph-analysis guides and reports
 monitoring/ Phase 5 read-only monitoring guide and validation report
 pipeline/  Phase 6 evidence pipeline guide and validation report
 faults/    Phase 7 controlled fault injection guide and validation report

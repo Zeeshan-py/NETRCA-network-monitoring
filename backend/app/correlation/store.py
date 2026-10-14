@@ -241,7 +241,8 @@ class IncidentStore:
                                "WHERE ie.incident_id=%s ORDER BY ie.sequence_number", (incident_id,))
                 events = cursor.fetchall()
                 cursor.execute("SELECT ia.anomaly_id AS id,ia.relationship_type,a.device_id,a.metric_id,"
-                               "a.event_id,a.model_name,a.severity,a.detected_at,m.timestamp AS observed_at "
+                               "a.event_id,a.model_name,a.severity,a.detected_at,m.link_id,"
+                               "m.timestamp AS observed_at "
                                "FROM public.incident_anomalies ia JOIN public.anomalies a ON a.id=ia.anomaly_id "
                                "LEFT JOIN public.metrics m ON m.id=a.metric_id "
                                "WHERE ia.incident_id=%s ORDER BY observed_at,ia.anomaly_id", (incident_id,))

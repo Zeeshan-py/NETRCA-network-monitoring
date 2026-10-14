@@ -46,3 +46,27 @@ snapshot are rolled back. Run the existing real Mininet suite in Ubuntu with
 Phase 4 does not implement update/delete endpoints, frontend graph rendering,
 automatic discovery or sync, monitoring, faults, RCA, or AI. Persistent writes
 should remain disabled until the developer deliberately enables the local lab.
+
+## Phase 10 structural analysis
+
+Phase 10 reuses the validated Phase 4 undirected graph and its UUID identifiers.
+`GET /api/v1/topology/analysis`, `/topology/path`,
+`/topology/devices/{device_id}/neighbors`, and `/topology/importance` accept
+`source=live|stored` (default `live`, matching the Phase 4 topology route).
+The live source requires a running simulator and uses deterministic runtime
+UUIDs; the stored source uses database UUIDs. They are separate identity spaces.
+`GET /api/v1/incidents/{incident_id}/topology-context` uses **stored** topology
+only, since incident evidence references persisted IDs. All routes are read-only
+and local-only. See [PHASE10_REPORT.md](PHASE10_REPORT.md) for examples and tests.
+
+Connectivity and shortest paths describe physical adjacency, including links
+whose recorded status is `DOWN`; they are not traffic reachability or live
+connectivity probes. A disconnected graph remains valid. Degree is the number
+of immediate physical neighbors. Betweenness measures how often a device lies
+on shortest paths; it is skipped above 128 devices. Articulation points and
+bridges identify single nodes or links whose removal increases the number of
+components. These are structural properties, not failure predictions or root
+causes. Incident context maps directly referenced devices and links, then shows
+one-hop neighbors of referenced devices and endpoints of referenced links. It
+marks missing IDs and unmapped service IDs explicitly; it does not traverse
+dependencies or infer causality.

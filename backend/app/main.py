@@ -16,6 +16,7 @@ from app.api.faults import router as faults_router
 from app.api.anomalies import router as anomalies_router
 from app.api.incidents import router as incidents_router
 from app.api.topology import router as topology_router
+from app.api.graph_analysis import router as graph_analysis_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.network.manager import NetworkManager
@@ -108,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(anomalies_router, prefix="/api/v1")
     app.include_router(incidents_router, prefix="/api/v1")
     app.include_router(topology_router, prefix="/api/v1")
+    app.include_router(graph_analysis_router, prefix="/api/v1")
     return app
 
 

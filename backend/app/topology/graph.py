@@ -63,8 +63,15 @@ class TopologyGraph:
         if not validation.valid:
             raise ValueError("Cannot traverse an invalid topology")
         graph = nx.Graph()
-        graph.add_nodes_from(device.id for device in self.devices)
-        graph.add_edges_from((link.source_device_id, link.destination_device_id) for link in self.links)
+        for device in sorted(self.devices, key=lambda item: str(item.id)):
+            graph.add_node(device.id, name=device.name, device_type=device.device_type,
+                           status=device.status, is_active=device.is_active)
+        for link in sorted(self.links, key=lambda item: str(item.id)):
+            graph.add_edge(link.source_device_id, link.destination_device_id, id=link.id,
+                           status=link.status, interface_source=link.interface_source,
+                           interface_destination=link.interface_destination,
+                           bandwidth_mbps=link.bandwidth_mbps, latency_ms=link.latency_ms,
+                           packet_loss_percent=link.packet_loss_percent)
         return graph
 
     def neighbors(self, device_id: UUID) -> list[UUID]:
