@@ -17,6 +17,7 @@ from app.api.anomalies import router as anomalies_router
 from app.api.incidents import router as incidents_router
 from app.api.topology import router as topology_router
 from app.api.graph_analysis import router as graph_analysis_router
+from app.api.rca import router as rca_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.network.manager import NetworkManager
@@ -27,6 +28,7 @@ from app.anomaly.store import AnomalyStore
 from app.correlation.store import IncidentStore
 from app.pipeline.store import EvidenceStore
 from app.topology.store import TopologyStore
+from app.rca.store import RcaStore
 
 logger = logging.getLogger("netrca")
 
@@ -64,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.anomaly_store = AnomalyStore(settings)
     app.state.anomaly_service = AnomalyService(settings, app.state.anomaly_store)
     app.state.incident_store = IncidentStore(settings)
+    app.state.rca_store = RcaStore(settings)
     app.state.settings = settings
     app.add_middleware(
         CORSMiddleware,
@@ -110,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(incidents_router, prefix="/api/v1")
     app.include_router(topology_router, prefix="/api/v1")
     app.include_router(graph_analysis_router, prefix="/api/v1")
+    app.include_router(rca_router, prefix="/api/v1")
     return app
 
 

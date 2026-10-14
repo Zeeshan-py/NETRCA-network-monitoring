@@ -4,7 +4,7 @@ NetRCA is an AI-assisted network root cause analysis and incident response proje
 
 ## Current scope
 
-Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. Phase 4 adds validated device/link graph and PostgreSQL topology services. Phase 5 adds on-demand, read-only Mininet monitoring snapshots and bounded host-pair probes. Phase 6 adds controlled ingestion of observed metrics, structured logs and state events into PostgreSQL, with paginated history. Phase 7 adds opt-in, local-only fault injection with tracked restoration in the Mininet lab. Phase 8 adds explainable threshold, baseline and optional Isolation Forest detection on validated metrics. Phase 9 adds deterministic event/anomaly correlation into stored incidents. Phase 10 adds read-only NetworkX structural analysis and stored incident topology context. The health response describes the API process only. The UI contains no live network metrics or incident data.
+Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. Phase 4 adds validated device/link graph and PostgreSQL topology services. Phase 5 adds on-demand, read-only Mininet monitoring snapshots and bounded host-pair probes. Phase 6 adds controlled ingestion of observed metrics, structured logs and state events into PostgreSQL, with paginated history. Phase 7 adds opt-in, local-only fault injection with tracked restoration in the Mininet lab. Phase 8 adds explainable threshold, baseline and optional Isolation Forest detection on validated metrics. Phase 9 adds deterministic event/anomaly correlation into stored incidents. Phase 10 adds read-only NetworkX structural analysis and stored incident topology context. Phase 11 adds explainable, deterministic RCA candidates and inconclusive runs backed by the approved `rca_runs` table. The health response describes the API process only. The UI contains no live network metrics or incident data.
 
 ```
 backend/    FastAPI app, configuration, and pytest tests
@@ -19,6 +19,7 @@ pipeline/  Phase 6 evidence pipeline guide and validation report
 faults/    Phase 7 controlled fault injection guide and validation report
 anomaly/   Phase 8 anomaly detection guide and validation report
 correlation/ Phase 9 correlation guide, schema proposal, and validation report
+rca/       Phase 11 RCA rules, approved schema proposal, and validation report
 ```
 
 ## Prerequisites
@@ -81,6 +82,8 @@ The backend reads `backend/.env` or process environment variables. The frontend 
 | `NETRCA_CORRELATION_WRITES_ENABLED` | Backend | Opt in to Phase 9 incident writes; default `false` |
 | `NETRCA_CORRELATION_WINDOW_SECONDS` | Backend | Maximum direct-correlation window; default 300 seconds |
 | `NETRCA_CORRELATION_MAX_AGE_MINUTES` | Backend | Maximum age of selected evidence; default 1440 minutes |
+| `NETRCA_RCA_WRITES_ENABLED` | Backend | Opt in to Phase 11 persisted analysis; default `false` |
+| `NETRCA_RCA_TIMING_WINDOW_SECONDS` | Backend | Temporal support window for RCA; default 300 seconds |
 
 If the frontend runs on a different origin, update `NETRCA_CORS_ORIGINS` accordingly. Restart the frontend after changing its environment file. Never put future Gemini keys or Supabase service credentials in a `NEXT_PUBLIC_` variable.
 
@@ -90,7 +93,7 @@ The Supabase CLI project configuration is in `supabase/config.toml`. To link a f
 
 See [database/README.md](database/README.md) for migration, local setup, guarded demo seed, RLS, validation, and rollback instructions. The migration is `supabase/migrations/20261012000100_initial_schema.sql`; after reviewing the linked project and a dry run, apply it from the repository root with `npx supabase db push --linked --skip-vault`. Development fixture rows are never included in that push. The database validation suite can test migration behavior inside a rollback transaction and is documented in the database guide.
 
-Phase 6 adds two [evidence pipeline migrations](pipeline/README.md) for observed interface/link metrics and deduplication indexes. They were applied to the linked project without loading development fixtures.
+Phase 6 adds two [evidence pipeline migrations](pipeline/README.md) for observed interface/link metrics and deduplication indexes. Phase 11 adds the approved [RCA runs migration](rca/PHASE11_REPORT.md). These were applied to the linked project without loading development fixtures.
 
 ## Network simulation
 
@@ -98,5 +101,5 @@ Simulation is disabled by default. From `backend/`, `python -m app.network.cli e
 
 ## Limitations
 
-The Mininet lab was verified locally under Ubuntu WSL2; its simulation still requires explicit opt-in and root privileges. Monitoring, evidence collection, [controlled fault injection](faults/README.md), [anomaly detection](anomaly/README.md), and [incident correlation](correlation/README.md) are on demand. RCA, Gemini, and authentication are planned for later phases. An API connection indicator confirms only that the FastAPI health endpoint responded. It does not indicate database or network health.
+The Mininet lab was verified locally under Ubuntu WSL2; its simulation still requires explicit opt-in and root privileges. Monitoring, evidence collection, [controlled fault injection](faults/README.md), [anomaly detection](anomaly/README.md), [incident correlation](correlation/README.md), and [rule-based RCA](rca/README.md) are on demand. Gemini, impact analysis, remediation, and authentication are outside the current scope. An API connection indicator confirms only that the FastAPI health endpoint responded. It does not indicate database or network health.
 # NETRCA-network-monitoring

@@ -1,0 +1,20 @@
+CREATE TABLE public.rca_runs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    incident_id uuid NOT NULL REFERENCES public.incidents(id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+    analysis_version text NOT NULL
+        CHECK (btrim(analysis_version) <> '' AND length(analysis_version) <= 64),
+    input_fingerprint text NOT NULL
+        CHECK (input_fingerprint ~ '^[0-9a-f]{64}$'),
+    status text NOT NULL CHECK (status IN ('CANDIDATES', 'INCONCLUSIVE')),
+    result jsonb NOT NULL CHECK (jsonb_typeof(result) = 'object'),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    last_analyzed_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (last_analyzed_at >= created_at),
+    UNIQUE (incident_id, analysis_version, input_fingerprint)
+);
+CREATE INDEX rca_runs_incident_latest_idx
+    ON public.rca_runs (incident_id, last_analyzed_at DESC, id DESC);
+ALTER TABLE public.rca_runs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.rca_runs FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rca_runs TO service_role;
