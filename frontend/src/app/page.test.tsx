@@ -1,12 +1,60 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import Home from "./page";
 
-vi.mock("@/components/api-status", () => ({ ApiStatus: () => <span>Checking API</span> }));
+const api = vi.hoisted(() => ({
+  getApiHealth: vi.fn(), getNetworkStatus: vi.fn(), getTopology: vi.fn(), getMonitoring: vi.fn(),
+  getPage: vi.fn(), getIncident: vi.fn(), getIncidentRca: vi.fn(), getIncidentImpact: vi.fn(),
+  runIncidentRca: vi.fn(), runIncidentImpact: vi.fn(), correlateEvidence: vi.fn(), generateIncidentExplanation: vi.fn(),
+}));
+vi.mock("@/lib/api", () => api);
 
-test("renders the Phase 1 application shell without live network claims", () => {
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+function healthyResponses() {
+  api.getApiHealth.mockResolvedValue({ data: { api: "UP" } });
+  api.getNetworkStatus.mockResolvedValue({ data: { state: "RUNNING", topology_name: "lab", device_count: 2, link_count: 1 } });
+  api.getTopology.mockResolvedValue({ data: { nodes: [{ id: "d1", name: "h1", device_type: "HOST", state: "PRESENT" }], links: [] } });
+  api.getMonitoring.mockResolvedValue({ data: { observed_at: "2026-10-15T10:00:00Z", network_state: "RUNNING", collection_status: "COMPLETE", devices: [], links: [], errors: [] } });
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [] : [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } }));
+}
+
+test("loads real API-backed overview and presents empty evidence honestly", async () => {
+  healthyResponses();
   render(<Home />);
-  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Clarity when the network fails.");
-  expect(screen.getByText("NETWORK DATA")).toBeInTheDocument();
-  expect(screen.getByText("NOT CONNECTED")).toBeInTheDocument();
+  expect(await screen.findByText("API connected")).toBeInTheDocument();
+  expect(screen.getByText("RUNNING")).toBeInTheDocument();
+  expect(screen.getByText("h1")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Evidence" }));
+  expect(await screen.findAllByText("No stored records are available yet.")).toHaveLength(3);
+});
+
+test("surfaces backend failures without replacing them with demonstration data", async () => {
+  healthyResponses();
+  api.getPage.mockImplementation(async (resource: string) => {
+    if (resource === "incidents") throw new Error("The database is unavailable. Check the backend database configuration.");
+    return { data: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } };
+  });
+  render(<Home />);
+  fireEvent.click(within(screen.getByRole("navigation", { name: "Workspace" })).getByRole("button", { name: "Incidents" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("database is unavailable");
+});
+
+test("loads incident evidence and distinguishes candidate scores from probabilities", async () => {
+  healthyResponses();
+  const incident = { id: "incident-1", title: "Interface degradation", severity: "HIGH", status: "INVESTIGATING", start_time: "2026-10-15T10:00:00Z" };
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [incident] : [], pagination: { page: 1, limit: 20, total: resource === "incidents" ? 1 : 0, pages: resource === "incidents" ? 1 : 0 } }));
+  api.getIncident.mockResolvedValue({ ...incident, events: [{ id: "event-1", event_type: "INTERFACE_FAILURE", message: "Interface changed to DOWN", severity: "HIGH", timestamp: incident.start_time }], anomalies: [] });
+  api.getIncidentRca.mockResolvedValue({ data: { result: { status: "CANDIDATES", candidates: [{ cause_type: "INTERFACE_FAILURE", score: 42, explanation: "Evidence supports an interface fault", supporting_evidence: [{}], contradictory_evidence: [] }] } } });
+  api.getIncidentImpact.mockRejectedValue(new Error("No current impact result"));
+  api.generateIncidentExplanation.mockResolvedValue({ data: { summary: [{ claim_id: "C001", text: "An interface failure preceded the event.", evidence_references: [{ source_type: "EVENT", source_id: "event-1" }] }] } });
+  render(<Home />);
+  fireEvent.click(await screen.findByRole("button", { name: /Interface degradation/ }));
+  expect(await screen.findByText("Evidence supports an interface fault")).toBeInTheDocument();
+  expect(screen.getByText(/uncalibrated points, not probability/)).toBeInTheDocument();
+  expect(screen.getByText("Impact and failure chain")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Generate explanation" }));
+  expect(await screen.findByText("An interface failure preceded the event.")).toBeInTheDocument();
+  expect(api.generateIncidentExplanation).toHaveBeenCalledWith("incident-1");
+  await waitFor(() => expect(api.getIncident).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal)));
 });

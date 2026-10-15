@@ -4,7 +4,7 @@ NetRCA is an AI-assisted network root cause analysis and incident response proje
 
 ## Current scope
 
-Phase 1 provides a FastAPI application with a versioned API health endpoint and a Next.js application shell that checks that endpoint. Phase 2 adds the Supabase PostgreSQL schema, a guarded development seed, a server-side connection layer, and database validation. Phase 3 adds an opt-in Mininet lab topology, a lifecycle manager, connectivity checks, and local-only simulator API routes. Phase 4 adds validated device/link graph and PostgreSQL topology services. Phase 5 adds on-demand, read-only Mininet monitoring snapshots and bounded host-pair probes. Phase 6 adds controlled ingestion of observed metrics, structured logs and state events into PostgreSQL, with paginated history. Phase 7 adds opt-in, local-only fault injection with tracked restoration in the Mininet lab. Phase 8 adds explainable threshold, baseline and optional Isolation Forest detection on validated metrics. Phase 9 adds deterministic event/anomaly correlation into stored incidents. Phase 10 adds read-only NetworkX structural analysis and stored incident topology context. Phase 11 adds explainable, deterministic RCA candidates and inconclusive runs backed by the approved `rca_runs` table. Phase 12 adds evidence-linked, one-hop impact and failure-chain analysis with explicit inconclusive results backed by `impact_runs`. Phase 13 adds an opt-in, backend-only Gemini explanation that organizes evidence-linked claims without storing output or changing deterministic analysis. The health response describes the API process only. The UI contains no live network metrics or incident data.
+Phase 1 provides the FastAPI health endpoint and Next.js shell. Phases 2–12 add PostgreSQL persistence, the controlled Mininet lab, monitoring, evidence collection, fault injection, anomaly detection, correlation, graph analysis, RCA, and impact analysis. Phase 13 adds an opt-in backend Gemini explanation that orders evidence-linked claims. Phase 14 hardens local-only API access, request limits, and safe errors. Phase 15 verifies the request path across Mininet and PostgreSQL with rollback fixtures. Phase 16 connects the dashboard to the implemented local API for topology, monitoring, stored evidence, incidents, RCA, impact, and explicit explanation requests. See [the Phase 16 report](frontend/PHASE16_REPORT.md) for actual verification and limitations.
 
 ```
 backend/    FastAPI app, configuration, and pytest tests
@@ -65,6 +65,60 @@ npm run dev
 ```
 
 Open `http://localhost:3000`. For a production build, run `npm run build`, then `npm start`. Run checks with `npm test`, `npm run typecheck`, and `npm run lint`.
+
+## Local demonstration workflow
+
+Use the frontend and API on the same workstation, bound to loopback. NetRCA
+does not provide user authentication, so do not expose either development
+server to a LAN, reverse proxy, or public network. The dashboard reads the
+current simulator status/topology and database-backed monitoring, metrics,
+logs, events, anomalies, and incidents. Health only means that FastAPI
+responded; database and simulator states are reported separately.
+
+1. Configure `frontend/.env.local` with
+   `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1`. Configure
+   `backend/.env` with `NETRCA_CORS_ORIGINS=http://localhost:3000`. Keep
+   `DATABASE_URL` and `GEMINI_API_KEY` only in the backend environment; never
+   put credentials in a `NEXT_PUBLIC_*` variable or paste them into a terminal
+   command. The frontend template already contains the local API URL.
+2. Start the API in one terminal using the [Backend](#backend) command and the
+   frontend in another using the [Frontend](#frontend) command. The default
+   simulation and write flags are off. A status request alone does not start
+   Mininet or write database records.
+3. Open `http://localhost:3000`, select **Refresh**, and verify the API badge,
+   simulator status, topology, monitoring snapshot, and stored lists
+   independently. Empty lists mean no records were returned. A database or
+   connectivity error remains visible in that section. List views expose
+   previous/next controls and the count/page currently displayed.
+4. For a safe fixture-only preview, use the existing
+   `database/seed_local.py` only with a **disposable local PostgreSQL** and its
+   required explicit loopback `NETRCA_LOCAL_DATABASE_URL`. Do not point the
+   seed runner at the linked/cloud database. Seed rows are labeled demo
+   fixtures and do not prove live Mininet or analysis execution. For an actual
+   lab workflow, use the isolated Ubuntu/WSL2 Mininet instructions in
+   [network/README.md](network/README.md), enable only the required backend
+   flags locally, and collect snapshots through the guarded API. Never inject
+   a fault into a real network.
+5. In **Evidence**, submit only the displayed page to correlation; in
+   **Incidents**, select a stored incident to inspect its original event and
+   anomaly references, current RCA candidates, and impact/failure chain. RCA
+   and impact buttons call the existing opt-in endpoints, which can reject the
+   action while their backend write flags are off. The UI labels candidate
+   scores as uncalibrated rule points and distinguishes observed from
+   potential impact. It does not fabricate empty or missing results.
+6. **Generate explanation** is a separate user action and may call the
+   configured Gemini provider when the backend enables it. Page load and
+   refresh never call Gemini. Phase 16 verification used a mocked frontend
+   response and made no live Gemini request. To demonstrate this panel without
+   an external call, use the existing test suite's mocked response; the runtime
+   backend does not currently include a mock-provider setting.
+7. To show an empty state, use a disposable database with no seeded records.
+   To show API/network error states, stop the local API or deliberately use an
+   unavailable local endpoint, then restore the normal configuration. Do not
+   alter security controls to make a request succeed.
+8. Stop the frontend and API with `Ctrl+C`. If the isolated Mininet lab was
+   started, stop it with its guarded API or the owning backend shutdown path,
+   then verify the lab is stopped using the documented Ubuntu checks.
 
 ## Configuration
 
