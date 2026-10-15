@@ -22,6 +22,7 @@ from app.api.impact import router as impact_router
 from app.api.ai import router as ai_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
+from app.core.middleware import RequestBodyLimitMiddleware
 from app.network.manager import NetworkManager
 from app.faults.controller import FaultController
 from app.faults.store import FaultStore
@@ -76,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.impact_store = ImpactStore(settings)
     app.state.explanation_service = ExplanationService(ExplanationStore(settings), GeminiProvider(settings))
     app.state.settings = settings
+    app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
@@ -88,6 +90,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def log_request(request: Request, call_next):
         started = time.perf_counter()
         response = await call_next(request)
+        response.headers.setdefault("Cache-Control", "no-store")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
         logger.info(
             "request method=%s path=%s status=%s duration_ms=%.1f",
             request.method,

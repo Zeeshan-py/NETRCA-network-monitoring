@@ -22,6 +22,12 @@ def _error(status: int, code: str, message: str) -> JSONResponse:
 
 def _local_only(request: Request, *, control: bool) -> JSONResponse | None:
     settings: Settings = request.app.state.settings
+    # This app is intentionally direct-loopback only. Do not trust proxy headers
+    # to establish client identity; reverse-proxy deployments need real auth.
+    if any(request.headers.get(name) is not None for name in (
+        "forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip"
+    )):
+        return _error(403, "UNTRUSTED_PROXY_HEADERS", "Forwarded client headers are not accepted")
     peer = request.client.host if request.client else ""
     try:
         address = ip_address(peer)

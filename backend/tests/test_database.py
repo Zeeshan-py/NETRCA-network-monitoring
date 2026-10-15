@@ -40,4 +40,7 @@ def test_connection_check_uses_real_query_and_masks_settings():
     context.__enter__.return_value.execute.return_value.fetchone.return_value = (1,)
     with patch("app.db.connection.psycopg.connect", return_value=context):
         assert check_connection(settings)
-    context.__enter__.return_value.execute.assert_called_once_with("SELECT 1")
+        execute = context.__enter__.return_value.execute
+        execute.assert_any_call("SET LOCAL ROLE service_role")
+        execute.assert_any_call("SELECT 1")
+        assert execute.call_count == 2

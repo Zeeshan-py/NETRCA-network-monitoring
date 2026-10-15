@@ -32,9 +32,8 @@ class ExplanationStore:
         self.settings = settings
 
     def load(self, incident_id: UUID) -> Snapshot:
-        with transaction(self.settings) as connection:
+        with transaction(self.settings, read_only=True) as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
                 observations, topology, limitations = _load_inputs(cursor, incident_id)
                 cursor.execute(
                     "SELECT id,incident_id,analysis_version,input_fingerprint,status,result,"

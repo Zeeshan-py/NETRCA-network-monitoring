@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-2.5-flash", pattern=r"^gemini-[A-Za-z0-9._-]+$")
     gemini_timeout_seconds: int = Field(default=15, ge=2, le=30)
+    max_request_body_bytes: int = Field(default=262144, ge=65536, le=1048576)
     anomaly_latency_ms: float = Field(default=100, gt=0, le=10000)
     anomaly_packet_loss_percent: float = Field(default=5, gt=0, le=100)
     anomaly_min_availability_percent: float = Field(default=99, gt=0, le=100)
