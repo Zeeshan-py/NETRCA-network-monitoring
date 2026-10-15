@@ -4,7 +4,6 @@ from hashlib import sha256
 from uuid import UUID
 
 from psycopg.rows import dict_row
-from psycopg.pq import TransactionStatus
 from psycopg.types.json import Jsonb
 
 from app.core.config import Settings
@@ -309,10 +308,8 @@ class EvidenceStore:
             clauses.append("timestamp <= %s")
             params.append(to_time)
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
-        with transaction(self.settings) as connection:
+        with transaction(self.settings, read_only=True) as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                if connection.info.transaction_status == TransactionStatus.IDLE:
-                    cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
                 cursor.execute(f"SELECT count(*) AS total FROM public.{table}{where}", params)
                 total = cursor.fetchone()["total"]
                 cursor.execute(f"SELECT * FROM public.{table}{where} ORDER BY timestamp DESC, id DESC LIMIT %s OFFSET %s",

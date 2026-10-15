@@ -11,7 +11,8 @@ class DatabaseUnavailable(RuntimeError):
 
 
 @contextmanager
-def transaction(settings: Settings, *, read_only: bool = False) -> Iterator[psycopg.Connection]:
+def transaction(settings: Settings, *, read_only: bool = False,
+                repeatable_read: bool = False) -> Iterator[psycopg.Connection]:
     """One bounded transaction; commit on success, rollback on failure, always close.
 
     SQL callers must use parameters for values and psycopg.sql for identifiers.
@@ -28,8 +29,9 @@ def transaction(settings: Settings, *, read_only: bool = False) -> Iterator[psyc
             options="-c statement_timeout=10000 -c lock_timeout=5000",
             prepare_threshold=None,
         ) as connection:
-            if read_only:
-                connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            if read_only or repeatable_read:
+                mode = ", READ ONLY" if read_only else ""
+                connection.execute(f"SET TRANSACTION ISOLATION LEVEL REPEATABLE READ{mode}")
             # The configured Supabase login is an administrative role. Restrict
             # application SQL to the existing table-scoped service role.
             connection.execute("SET LOCAL ROLE service_role")

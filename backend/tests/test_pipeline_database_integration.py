@@ -25,7 +25,7 @@ def test_real_database_metrics_logs_events_dedup_pagination_and_rollback(monkeyp
     first = datetime.now(timezone.utc) - timedelta(minutes=2)
     with psycopg.connect(settings.database_url.get_secret_value(), sslmode="require", connect_timeout=10) as connection:
         @contextmanager
-        def same_transaction(_settings):
+        def same_transaction(_settings, **_kwargs):
             yield connection
 
         monkeypatch.setattr("app.pipeline.store.transaction", same_transaction)

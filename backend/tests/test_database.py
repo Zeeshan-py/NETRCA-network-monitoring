@@ -44,3 +44,21 @@ def test_connection_check_uses_real_query_and_masks_settings():
         execute.assert_any_call("SET LOCAL ROLE service_role")
         execute.assert_any_call("SELECT 1")
         assert execute.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("options", "isolation_sql"),
+    [
+        ({"read_only": True}, "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"),
+        ({"repeatable_read": True}, "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"),
+    ],
+)
+def test_transaction_sets_isolation_before_scoping_role(options, isolation_sql):
+    context = MagicMock()
+    context.__exit__.return_value = False
+    with patch("app.db.connection.psycopg.connect", return_value=context):
+        with transaction(Settings(_env_file=None, DATABASE_URL="postgresql://localhost/test"), **options):
+            pass
+    execute = context.__enter__.return_value.execute
+    assert execute.call_args_list[0].args == (isolation_sql,)
+    assert execute.call_args_list[1].args == ("SET LOCAL ROLE service_role",)

@@ -22,7 +22,7 @@ def test_real_database_create_retrieve_validate_and_rollback(monkeypatch):
     store.load()  # Read existing schema before the test transaction.
     with psycopg.connect(settings.database_url.get_secret_value(), sslmode="require", connect_timeout=10) as connection:
         @contextmanager
-        def same_transaction(_settings):
+        def same_transaction(_settings, **_kwargs):
             yield connection
 
         original_transaction = __import__("app.topology.store", fromlist=["transaction"]).transaction

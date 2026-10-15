@@ -30,9 +30,8 @@ class TopologyStore:
         self.settings = settings
 
     def load(self) -> TopologyGraph:
-        with transaction(self.settings) as connection:
+        with transaction(self.settings, read_only=True) as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
                 cursor.execute(f"SELECT {DEVICE_COLUMNS} FROM public.devices ORDER BY name, id")
                 devices = [Device.model_validate(row) for row in cursor.fetchall()]
                 cursor.execute(f"SELECT {LINK_COLUMNS} FROM public.links ORDER BY id")
@@ -47,9 +46,8 @@ class TopologyStore:
                 return [Snapshot.model_validate(row) for row in cursor.fetchall()]
 
     def create_snapshot(self, reason: str | None = None) -> Snapshot:
-        with transaction(self.settings) as connection:
+        with transaction(self.settings, repeatable_read=True) as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
                 cursor.execute(f"SELECT {DEVICE_COLUMNS} FROM public.devices ORDER BY name, id")
                 devices = [Device.model_validate(row) for row in cursor.fetchall()]
                 cursor.execute(f"SELECT {LINK_COLUMNS} FROM public.links ORDER BY id")
