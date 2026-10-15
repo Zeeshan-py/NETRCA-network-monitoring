@@ -5,6 +5,7 @@ import Home from "./page";
 const api = vi.hoisted(() => ({
   getApiHealth: vi.fn(), getNetworkStatus: vi.fn(), getTopology: vi.fn(), getMonitoring: vi.fn(),
   getPage: vi.fn(), getIncident: vi.fn(), getIncidentRca: vi.fn(), getIncidentImpact: vi.fn(),
+  getTopologyGraph: vi.fn(), getIncidentTopologyContext: vi.fn(),
   runIncidentRca: vi.fn(), runIncidentImpact: vi.fn(), correlateEvidence: vi.fn(), generateIncidentExplanation: vi.fn(),
 }));
 vi.mock("@/lib/api", () => api);
@@ -16,6 +17,7 @@ function healthyResponses() {
   api.getNetworkStatus.mockResolvedValue({ data: { state: "RUNNING", topology_name: "lab", device_count: 2, link_count: 1 } });
   api.getTopology.mockResolvedValue({ data: { nodes: [{ id: "d1", name: "h1", device_type: "HOST", state: "PRESENT" }], links: [] } });
   api.getMonitoring.mockResolvedValue({ data: { observed_at: "2026-10-15T10:00:00Z", network_state: "RUNNING", collection_status: "COMPLETE", devices: [], links: [], errors: [] } });
+  api.getTopologyGraph.mockResolvedValue({ data: { directed: false, semantics: "PHYSICAL_TOPOLOGY", connected: true, components: [["d1"]], devices: [{ id: "d1", name: "h1", device_type: "HOST", status: "PRESENT" }], links: [] } });
   api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [] : [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } }));
 }
 
@@ -57,4 +59,43 @@ test("loads incident evidence and distinguishes candidate scores from probabilit
   expect(await screen.findByText("An interface failure preceded the event.")).toBeInTheDocument();
   expect(api.generateIncidentExplanation).toHaveBeenCalledWith("incident-1");
   await waitFor(() => expect(api.getIncident).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal)));
+});
+
+test("switches graph source without retaining a selection from the previous source", async () => {
+  healthyResponses();
+  api.getTopologyGraph.mockImplementation(async (source: string) => ({ data: {
+    directed: false, semantics: "PHYSICAL_TOPOLOGY", connected: true, components: [[source === "live" ? "live-id" : "stored-id"]],
+    devices: [{ id: source === "live" ? "live-id" : "stored-id", name: "edge-host", device_type: "HOST", status: source === "live" ? "PRESENT" : "HEALTHY" }], links: [],
+  } }));
+  render(<Home />);
+  fireEvent.click(screen.getByRole("button", { name: "Topology" }));
+  expect(await screen.findByRole("button", { name: /Device edge-host/ })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Device edge-host/ }));
+  expect(screen.getByRole("heading", { name: "edge-host" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Stored topology" }));
+  expect(await screen.findByRole("button", { name: /Device edge-host/ })).toBeInTheDocument();
+  expect(screen.getByText(/Select a device or link/)).toBeInTheDocument();
+  expect(screen.queryByText("live-id")).not.toBeInTheDocument();
+  expect(api.getTopologyGraph).toHaveBeenCalledWith("stored", expect.any(AbortSignal));
+});
+
+test("opens stored topology from incident evidence context without running analysis", async () => {
+  healthyResponses();
+  const incident = { id: "incident-1", title: "Stored incident", severity: "MEDIUM", status: "DETECTED", start_time: "2026-10-15T10:00:00Z" };
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [incident] : [], pagination: { page: 1, limit: 20, total: resource === "incidents" ? 1 : 0, pages: resource === "incidents" ? 1 : 0 } }));
+  api.getIncident.mockResolvedValue({ ...incident, events: [], anomalies: [] });
+  api.getIncidentRca.mockResolvedValue({ data: {} });
+  api.getIncidentImpact.mockResolvedValue({ data: {} });
+  api.getIncidentTopologyContext.mockResolvedValue({ data: {
+    incident_id: incident.id, source: "stored", evidence: [], referenced_device_ids: ["stored-device"], referenced_link_ids: [],
+    context_device_ids: ["stored-device"], context_link_ids: [], missing_device_ids: [], missing_link_ids: [], unmapped_service_ids: [],
+  } });
+  render(<Home />);
+  fireEvent.click(screen.getByRole("button", { name: "Incidents" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Stored incident/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Show evidence in stored topology" }));
+  expect(await screen.findByText(/Showing stored graph context for/)).toBeInTheDocument();
+  expect(api.getIncidentTopologyContext).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal));
+  expect(api.runIncidentRca).not.toHaveBeenCalled();
+  expect(api.runIncidentImpact).not.toHaveBeenCalled();
 });

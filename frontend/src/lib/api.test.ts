@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, getPage, getTopology } from "./api";
+import { ApiError, apiRequest, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -61,4 +61,57 @@ test("adds the established local-control header only to explicit protected actio
   const request = fetchMock.mock.calls[0][1] as RequestInit;
   expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
   expect(request.body).toBe(JSON.stringify({ event_ids: ["event"], anomaly_ids: [] }));
+});
+
+test("requests live and stored graph sources separately without mixing them", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const graph = { directed: false, semantics: "PHYSICAL_TOPOLOGY", connected: true, components: [["live-id"]], devices: [{ id: "live-id", name: "h1", device_type: "HOST", status: "PRESENT" }], links: [] };
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: graph }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await getTopologyGraph("live");
+  await getTopologyGraph("stored");
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    "http://localhost:8000/api/v1/topology/analysis?source=live",
+    "http://localhost:8000/api/v1/topology/analysis?source=stored",
+  ]);
+  expect(new Headers(fetchMock.mock.calls[0][1].headers).has("X-NetRCA-Local-Control")).toBe(false);
+});
+
+test("rejects malformed graph contracts while preserving absent status as unknown data", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const malformed = { directed: false, semantics: "PHYSICAL_TOPOLOGY", connected: true, components: [], devices: [{ id: "d", name: "host", device_type: "HOST" }], links: "bad" };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: malformed }) }));
+  await expect(getTopologyGraph("stored")).rejects.toMatchObject({ message: expect.stringContaining("graph contract") });
+});
+
+test("uses only supported stored filters for evidence queries", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const page = { data: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } };
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, ...page }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await getPage("metrics", 1, 20, undefined, { deviceId: "device-uuid" });
+  await getPage("events", 1, 20, undefined, { linkId: "link-uuid" });
+  await getPage("anomalies", 1, 20, undefined, { linkId: "unsupported-link-filter" });
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    "http://localhost:8000/api/v1/metrics?page=1&limit=20&device_id=device-uuid",
+    "http://localhost:8000/api/v1/events?page=1&limit=20&link_id=link-uuid",
+    "http://localhost:8000/api/v1/anomalies?page=1&limit=20",
+  ]);
+});
+
+test("validates incident topology context as a stored relationship", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const context = { incident_id: "incident-1", source: "stored", evidence: [], referenced_device_ids: [], referenced_link_ids: [], context_device_ids: ["device-1"], context_link_ids: [], missing_device_ids: [], missing_link_ids: [], unmapped_service_ids: [] };
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: context }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await getIncidentTopologyContext("incident-1");
+  expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/api/v1/incidents/incident-1/topology-context");
+  expect(new Headers(fetchMock.mock.calls[0][1].headers).has("X-NetRCA-Local-Control")).toBe(false);
+});
+
+test("rejects incident topology context returned for a different incident", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const context = { incident_id: "other-incident", source: "stored", evidence: [], referenced_device_ids: [], referenced_link_ids: [], context_device_ids: [], context_link_ids: [], missing_device_ids: [], missing_link_ids: [], unmapped_service_ids: [] };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: context }) }));
+  await expect(getIncidentTopologyContext("incident-1")).rejects.toMatchObject({ message: expect.stringContaining("context response") });
 });

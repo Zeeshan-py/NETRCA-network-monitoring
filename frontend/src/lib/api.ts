@@ -29,6 +29,27 @@ export type TopologyLink = {
   interface_destination?: string | null;
 };
 export type Topology = { topology_name?: string; nodes: TopologyNode[]; links: TopologyLink[]; components?: string[][] };
+export type GraphSource = "live" | "stored";
+export type GraphSummary = {
+  directed: false;
+  semantics: "PHYSICAL_TOPOLOGY";
+  connected: boolean;
+  components: string[][];
+  devices: Array<{ id: string; name: string; device_type: string; status?: string }>;
+  links: Array<{ id: string; source_device_id: string; destination_device_id: string; status?: string }>;
+};
+export type IncidentTopologyContext = {
+  incident_id: string;
+  source: "stored";
+  evidence: Array<{ kind: "EVENT" | "ANOMALY"; id: string; device_id?: string | null; link_id?: string | null; device_found?: boolean | null; link_found?: boolean | null }>;
+  referenced_device_ids: string[];
+  referenced_link_ids: string[];
+  context_device_ids: string[];
+  context_link_ids: string[];
+  missing_device_ids: string[];
+  missing_link_ids: string[];
+  unmapped_service_ids: string[];
+};
 export type Monitoring = {
   observed_at: string;
   topology_name: string;
@@ -123,12 +144,54 @@ export async function getTopology(signal?: AbortSignal) {
     return apiRequest<Envelope<Topology>>("/topology?source=stored", { signal });
   }
 }
+export async function getTopologyGraph(source: GraphSource, signal?: AbortSignal) {
+  const response = await apiRequest<Envelope<GraphSummary>>(`/topology/analysis?source=${source}`, { signal });
+  const graph = response.data as unknown;
+  if (!isRecord(graph) || graph.directed !== false || graph.semantics !== "PHYSICAL_TOPOLOGY"
+      || typeof graph.connected !== "boolean" || !Array.isArray(graph.components)
+      || !graph.components.every((component) => Array.isArray(component) && component.every((id) => typeof id === "string"))
+      || !Array.isArray(graph.devices) || !graph.devices.every((device) => isRecord(device)
+        && typeof device.id === "string" && typeof device.name === "string" && typeof device.device_type === "string"
+        && (device.status === undefined || typeof device.status === "string"))
+      || !Array.isArray(graph.links) || !graph.links.every((link) => isRecord(link)
+        && typeof link.id === "string" && typeof link.source_device_id === "string"
+        && typeof link.destination_device_id === "string" && (link.status === undefined || typeof link.status === "string"))) {
+    throw new ApiError("The topology analysis response did not match the expected graph contract.");
+  }
+  const deviceIds = (graph.devices as Array<{ id: string }>).map((device) => device.id);
+  const linkIds = (graph.links as Array<{ id: string }>).map((link) => link.id);
+  if (new Set(deviceIds).size !== deviceIds.length || new Set(linkIds).size !== linkIds.length) {
+    throw new ApiError("The topology analysis response contained duplicate graph IDs.");
+  }
+  return response;
+}
+export async function getIncidentTopologyContext(id: string, signal?: AbortSignal) {
+  const response = await apiRequest<Envelope<IncidentTopologyContext>>(`/incidents/${encodeURIComponent(id)}/topology-context`, { signal });
+  const context = response.data as unknown;
+  const validIds = (key: string) => isRecord(context) && Array.isArray(context[key]) && context[key].every((value) => typeof value === "string");
+  const validEvidence = (value: unknown) => isRecord(value) && (value.kind === "EVENT" || value.kind === "ANOMALY")
+    && typeof value.id === "string"
+    && (value.device_id === undefined || value.device_id === null || typeof value.device_id === "string")
+    && (value.link_id === undefined || value.link_id === null || typeof value.link_id === "string")
+    && (value.device_found === undefined || value.device_found === null || typeof value.device_found === "boolean")
+    && (value.link_found === undefined || value.link_found === null || typeof value.link_found === "boolean");
+  if (!isRecord(context) || context.source !== "stored" || context.incident_id !== id
+      || !validIds("context_device_ids") || !validIds("context_link_ids") || !validIds("missing_device_ids")
+      || !validIds("referenced_device_ids") || !validIds("referenced_link_ids") || !validIds("missing_link_ids")
+      || !validIds("unmapped_service_ids") || !Array.isArray(context.evidence) || !context.evidence.every(validEvidence)) {
+    throw new ApiError("The incident topology context response did not match the expected contract.");
+  }
+  return response;
+}
 export async function getMonitoring(signal?: AbortSignal) {
   return apiRequest<Envelope<Monitoring>>("/network/monitoring", { signal });
 }
 
-export async function getPage<T>(resource: "metrics" | "logs" | "events" | "anomalies" | "incidents", page = 1, limit = 20, signal?: AbortSignal): Promise<Page<T>> {
-  const payload = await apiRequest<Record<string, unknown>>(`/${resource}?page=${page}&limit=${limit}`, { signal });
+export async function getPage<T>(resource: "metrics" | "logs" | "events" | "anomalies" | "incidents", page = 1, limit = 20, signal?: AbortSignal, filter?: { deviceId?: string; linkId?: string }): Promise<Page<T>> {
+  const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (filter?.deviceId && ["metrics", "logs", "events", "anomalies"].includes(resource)) query.set("device_id", filter.deviceId);
+  if (filter?.linkId && ["metrics", "events"].includes(resource)) query.set("link_id", filter.linkId);
+  const payload = await apiRequest<Record<string, unknown>>(`/${resource}?${query}`, { signal });
   const nested = payload.data;
   const candidate = Array.isArray(nested) ? nested : isRecord(nested) ? nested.data : undefined;
   const paginationValue = isRecord(payload.pagination) ? payload.pagination : isRecord(nested) ? nested.pagination : undefined;

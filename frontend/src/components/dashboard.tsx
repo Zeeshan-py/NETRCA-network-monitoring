@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   correlateEvidence, generateIncidentExplanation, getApiHealth, getIncident, getIncidentImpact, getIncidentRca,
-  getMonitoring, getNetworkStatus, getPage, getTopology, runIncidentImpact,
-  runIncidentRca, type EvidenceRecord, type Incident, type IncidentDetail,
-  type Monitoring, type NetworkStatus, type Page, type Topology,
+  getIncidentTopologyContext, getMonitoring, getNetworkStatus, getPage, getTopology, getTopologyGraph, runIncidentImpact,
+  runIncidentRca, type EvidenceRecord, type GraphSource, type GraphSummary, type Incident, type IncidentDetail,
+  type IncidentTopologyContext, type Monitoring, type NetworkStatus, type Page, type Topology,
 } from "@/lib/api";
+import { TopologyExplorer, type TopologySelection } from "@/components/topology-explorer";
+import { TopologyEvidence } from "@/components/topology-evidence";
 
 type Section = "Overview" | "Topology" | "Evidence" | "Anomalies" | "Incidents";
 type ViewData = {
@@ -62,8 +64,22 @@ export function Dashboard() {
   const [incidentError, setIncidentError] = useState<string>();
   const [actionMessage, setActionMessage] = useState<string>();
   const [actionError, setActionError] = useState<string>();
+  const [topologySource, setTopologySource] = useState<GraphSource>("live");
+  const [topologyGraph, setTopologyGraph] = useState<GraphSummary>();
+  const [topologyGraphSource, setTopologyGraphSource] = useState<GraphSource>();
+  const [topologyGraphLoading, setTopologyGraphLoading] = useState(false);
+  const [topologyGraphError, setTopologyGraphError] = useState<string>();
+  const [topologySelection, setTopologySelection] = useState<TopologySelection>();
+  const [topologyEvidenceFocus, setTopologyEvidenceFocus] = useState<{ selection: TopologySelection; label: string }>();
+  const [incidentTopology, setIncidentTopology] = useState<IncidentTopologyContext>();
+  const [incidentTopologyTitle, setIncidentTopologyTitle] = useState<string>();
+  const [incidentTopologyError, setIncidentTopologyError] = useState<string>();
+  const [incidentTopologyLoading, setIncidentTopologyLoading] = useState(false);
+  const [topologyReload, setTopologyReload] = useState(0);
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const incidentControllerRef = useRef<AbortController | undefined>(undefined);
+  const incidentTopologyControllerRef = useRef<AbortController | undefined>(undefined);
+  const selectedIncidentIdRef = useRef<string | undefined>(undefined);
   const pageControllers = useRef<Partial<Record<PageResource, AbortController>>>({});
   const pageSequence = useRef<Partial<Record<PageResource, number>>>({});
   const loadSequence = useRef(0);
@@ -114,17 +130,41 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (section !== "Topology") return;
+    const controller = new AbortController();
+    setTopologyGraph(undefined);
+    setTopologyGraphSource(undefined);
+    setTopologyGraphError(undefined);
+    setTopologyGraphLoading(true);
+    getTopologyGraph(topologySource, controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      setTopologyGraph(result.data);
+      setTopologyGraphSource(topologySource);
+    }).catch((error: unknown) => {
+      if (!controller.signal.aborted) setTopologyGraphError(message(error));
+    }).finally(() => {
+      if (!controller.signal.aborted) setTopologyGraphLoading(false);
+    });
+    return () => controller.abort();
+  }, [section, topologySource, topologyReload]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
     return () => {
       window.clearTimeout(timer);
       controllerRef.current?.abort();
       incidentControllerRef.current?.abort();
+      incidentTopologyControllerRef.current?.abort();
       Object.values(pageControllers.current).forEach((controller) => controller?.abort());
     };
   }, [refresh]);
 
   const loadIncident = useCallback(async (id: string) => {
     incidentControllerRef.current?.abort();
+    incidentTopologyControllerRef.current?.abort();
+    selectedIncidentIdRef.current = id;
+    setIncidentTopologyError(undefined);
+    setIncidentTopology(undefined);
     const controller = new AbortController();
     incidentControllerRef.current = controller;
     setSelectedId(id);
@@ -144,6 +184,45 @@ export function Dashboard() {
     setAnalysis(next);
     setIncidentLoading(false);
   }, []);
+
+  async function openIncidentTopology() {
+    if (!selectedId) return;
+    incidentTopologyControllerRef.current?.abort();
+    const controller = new AbortController();
+    incidentTopologyControllerRef.current = controller;
+    const incidentId = selectedId;
+    setIncidentTopologyLoading(true);
+    setIncidentTopologyError(undefined);
+    try {
+      const result = await getIncidentTopologyContext(incidentId, controller.signal);
+      if (controller.signal.aborted || selectedIncidentIdRef.current !== incidentId) return;
+      setIncidentTopology(result.data);
+      setIncidentTopologyTitle(selectedIncident?.title ?? "Selected incident");
+      setTopologySource("stored");
+      setTopologySelection(undefined);
+      setTopologyEvidenceFocus(undefined);
+      setSection("Topology");
+    } catch (error) {
+      if (!controller.signal.aborted && selectedIncidentIdRef.current === incidentId) setIncidentTopologyError(message(error));
+    } finally {
+      if (incidentTopologyControllerRef.current === controller) setIncidentTopologyLoading(false);
+    }
+  }
+
+  function changeTopologySource(source: GraphSource) {
+    if (source === topologySource) return;
+    setTopologySource(source);
+    setTopologySelection(undefined);
+    setIncidentTopology(undefined);
+    setIncidentTopologyTitle(undefined);
+    setTopologyGraph(undefined);
+    setTopologyGraphSource(undefined);
+  }
+
+  function openTopologyEvidence(selection: TopologySelection, label: string) {
+    setTopologyEvidenceFocus({ selection, label });
+    setSection("Evidence");
+  }
 
   async function changePage(resource: PageResource, direction: -1 | 1) {
     const current = data[resource] as Page<EvidenceRecord | Incident> | undefined;
@@ -188,8 +267,6 @@ export function Dashboard() {
   const anomalyRecords = data.anomalies?.data ?? [];
   const metricRecords = data.metrics?.data ?? [];
   const logRecords = data.logs?.data ?? [];
-  const nodeNames = new Map((data.topology?.nodes ?? []).map((node) => [node.id, node.name ?? node.id]));
-
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Application navigation">
@@ -198,7 +275,7 @@ export function Dashboard() {
           <p className="eyebrow">WORKSPACE</p>
           {sections.map((item) => <button className={`nav-item ${section === item ? "selected" : ""}`} key={item} onClick={() => setSection(item)} aria-current={section === item ? "page" : undefined}>{item}</button>)}
         </nav>
-        <div className="sidebar-note"><span className="note-dot" /> PHASE 16 / DEMO READY</div>
+        <div className="sidebar-note"><span className="note-dot" /> PHASE 17 / TOPOLOGY</div>
       </aside>
 
       <main className="main-content">
@@ -206,7 +283,7 @@ export function Dashboard() {
           <div className="crumb">NETRCA <span>/</span> {section.toUpperCase()}</div>
           <div className="top-actions">
             <span className={`api-status ${data.api ? "up" : loading ? "loading" : "unavailable"}`} role="status">{data.api ? "API connected" : loading ? "Checking API…" : "API unavailable"}</span>
-            <button className="button secondary" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh"}</button>
+            <button className="button secondary" onClick={() => { setTopologyReload((value) => value + 1); void refresh(); }} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh"}</button>
           </div>
         </header>
 
@@ -249,12 +326,10 @@ export function Dashboard() {
           </section>
         </div>}
 
-        {section === "Topology" && <section className="panel dashboard-content"><PanelHeading eyebrow="NETWORK GRAPH DATA" title="Current topology" /><State loading={loading} error={errors.topology} empty={!data.topology?.nodes.length}>
-          <div className="table-wrap"><table><thead><tr><th>Device</th><th>Type</th><th>Status</th><th>Address</th></tr></thead><tbody>{data.topology?.nodes.map((node) => <tr key={node.id}><td>{node.name ?? node.id}</td><td>{node.device_type}</td><td><StatusBadge value={node.status ?? node.state ?? "PRESENT"} /></td><td>{node.ip_address ?? "—"}</td></tr>)}</tbody></table></div>
-          <div className="table-wrap"><table><thead><tr><th>Link</th><th>Endpoints</th><th>Status</th></tr></thead><tbody>{data.topology?.links.map((link) => <tr key={link.id}><td>{link.id}</td><td>{link.source ? `${link.source} ↔ ${link.destination}` : `${nodeNames.get(link.source_device_id ?? "") ?? link.source_device_id} ↔ ${nodeNames.get(link.destination_device_id ?? "") ?? link.destination_device_id}`}</td><td><StatusBadge value={link.status} /></td></tr>)}</tbody></table></div>
-        </State></section>}
+        {section === "Topology" && <section className="panel dashboard-content"><PanelHeading eyebrow="NETWORK GRAPH" title="Interactive topology" /><TopologyExplorer source={topologySource} onSourceChange={changeTopologySource} graph={topologyGraphSource === topologySource ? topologyGraph : undefined} loading={topologyGraphLoading} error={topologyGraphError} selection={topologySelection} onSelect={setTopologySelection} onOpenEvidence={openTopologyEvidence} onBrowseIncidents={() => setSection("Incidents")} incidentContext={incidentTopology} incidentTitle={incidentTopologyTitle} /></section>}
 
-        {section === "Evidence" && <div className="dashboard-content">
+        {section === "Evidence" && topologyEvidenceFocus && <TopologyEvidence selection={topologyEvidenceFocus.selection} label={topologyEvidenceFocus.label} onBack={() => { setTopologyEvidenceFocus(undefined); setSection("Topology"); }} onBrowseIncidents={() => setSection("Incidents")} />}
+        {section === "Evidence" && !topologyEvidenceFocus && <div className="dashboard-content">
           <EvidenceTable title="Metrics" records={metricRecords} loading={loading} error={errors.metrics} page={data.metrics?.pagination} pageLoading={pageLoading.metrics} onPage={(direction) => void changePage("metrics", direction)} timeKey="timestamp" valueKey="metric_type" detailKey="value" />
           <EvidenceTable title="Logs" records={logRecords} loading={loading} error={errors.logs} page={data.logs?.pagination} pageLoading={pageLoading.logs} onPage={(direction) => void changePage("logs", direction)} timeKey="timestamp" valueKey="severity" detailKey="message" />
           <EvidenceTable title="Events" records={events} loading={loading} error={errors.events} page={data.events?.pagination} pageLoading={pageLoading.events} onPage={(direction) => void changePage("events", direction)} timeKey="timestamp" valueKey="event_type" detailKey="message" />
@@ -276,6 +351,8 @@ export function Dashboard() {
                 <p>{analysis.detail.description || "No incident description was recorded."}</p>
                 <PanelHeading eyebrow="CORRELATED EVIDENCE" title="Original records" />
                 <RecordTable records={[...analysis.detail.events.map((item) => ({ ...item, evidence_kind: "EVENT" })), ...analysis.detail.anomalies.map((item) => ({ ...item, evidence_kind: "ANOMALY" }))]} />
+                {incidentTopologyError && <p className="state-message error-message" role="alert">{incidentTopologyError}</p>}
+                <button className="button secondary" disabled={incidentTopologyLoading} onClick={() => void openIncidentTopology()}>{incidentTopologyLoading ? "Loading stored topology context…" : "Show evidence in stored topology"}</button>
                 <div className="action-row"><button className="button primary" onClick={() => void performAction("RCA run completed.", () => runIncidentRca(selectedId))}>Run deterministic RCA</button><button className="button secondary" onClick={() => void performAction("Impact analysis completed.", () => runIncidentImpact(selectedId))}>Run impact analysis</button></div>
                 <AnalysisPanel title="Root-cause analysis" value={analysis.rca} emptyLabel="No current RCA result is available. Run analysis if enabled on the backend." />
                 <AnalysisPanel title="Impact and failure chain" value={analysis.impact} emptyLabel="No impact result is available. Run analysis after RCA if enabled on the backend." />
