@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     rca_writes_enabled: bool = False
     rca_timing_window_seconds: int = Field(default=300, ge=1, le=3600)
     impact_writes_enabled: bool = False
+    gemini_enabled: bool = False
+    gemini_api_key: SecretStr | None = Field(default=None, validation_alias="GEMINI_API_KEY")
+    gemini_model: str = Field(default="gemini-2.5-flash", pattern=r"^gemini-[A-Za-z0-9._-]+$")
+    gemini_timeout_seconds: int = Field(default=15, ge=2, le=30)
     anomaly_latency_ms: float = Field(default=100, gt=0, le=10000)
     anomaly_packet_loss_percent: float = Field(default=5, gt=0, le=100)
     anomaly_min_availability_percent: float = Field(default=99, gt=0, le=100)

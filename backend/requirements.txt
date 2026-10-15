@@ -4,3 +4,4 @@ pydantic-settings>=2.7,<3
 psycopg[binary]>=3.2,<4
 networkx>=3.4,<4
 scikit-learn>=1.9,<2
+httpx>=0.28,<1
