@@ -14,6 +14,11 @@ INSERT INTO public.devices (id, name, device_type, ip_address, status, metadata)
 VALUES ('247fd2e3-fd24-5f3e-b798-babffc370f70', 'DEMO-Server1', 'SERVER', '10.77.0.10', 'WARNING', '{"demo": true, "source": "phase2-development-seed", "not_live_telemetry": true}')
 ON CONFLICT (id) DO NOTHING;
 
+-- Intentionally unlinked: validates the dashboard's disconnected-component rendering.
+INSERT INTO public.devices (id, name, device_type, ip_address, status, metadata)
+VALUES ('149e4c97-4e26-5ca0-9b92-8134f1f6400a', 'DEMO-IsolatedHost', 'HOST', '10.77.0.99', 'HEALTHY', '{"demo": true, "source": "phase18-development-seed", "not_live_telemetry": true, "scenario": "disconnected_component"}')
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO public.links (id, source_device_id, destination_device_id, bandwidth_mbps, latency_ms, packet_loss_percent, status, metadata)
 VALUES ('195b92f7-e9a1-533e-b923-ffb8a2e60888', '05d50c12-c3a0-55c0-877a-1f1491f84f94', 'e91444e2-2c6f-59f4-9fc9-d41b662e7214', 100, 10, 0, 'DOWN', '{"demo": true, "source": "phase2-development-seed", "not_live_telemetry": true}')
 ON CONFLICT (id) DO NOTHING;
@@ -64,6 +69,39 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.incident_events (id, incident_id, event_id, sequence_number, relationship_type)
 VALUES ('71f9f99a-eab6-57d6-b17f-15301596d13d', '738c7634-2a2b-58b9-beed-a62853c7b7d3', '406bc67f-5e93-5d3b-a5a0-4e7398b889b6', 2, 'DOWNSTREAM_SYMPTOM')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.incident_anomalies (incident_id, anomaly_id, relationship_type)
+VALUES ('738c7634-2a2b-58b9-beed-a62853c7b7d3', 'f0b65b4f-a95d-5ec2-b42f-514c1a4bb1e5', 'DEMO_METRIC_SYMPTOM')
+ON CONFLICT (incident_id, anomaly_id) DO NOTHING;
+
+-- Static, evidence-linked results for UI demonstration only. They are not outputs
+-- of a live Mininet run, deterministic analysis invocation, or Gemini request.
+INSERT INTO public.rca_runs (id, incident_id, analysis_version, input_fingerprint, status, result, created_at, last_analyzed_at)
+VALUES (
+  'd61ae586-a513-5b7d-9a36-c418d95a78b9',
+  '738c7634-2a2b-58b9-beed-a62853c7b7d3',
+  'RULES_V1',
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  'CANDIDATES',
+  '{"incident_id":"738c7634-2a2b-58b9-beed-a62853c7b7d3","status":"CANDIDATES","candidates":[{"cause_type":"LINK_FAILURE","target_kind":"LINK","target_id":"195b92f7-e9a1-533e-b923-ffb8a2e60888","score":20,"score_kind":"UNCALIBRATED_RULE_POINTS","explanation":"DEMO static candidate: the stored down uplink is supported by the linked failure evidence.","contributions":[{"rule":"DEMO_LINK_STATUS_DOWN","points":20,"evidence":[{"source_type":"EVENT","source_id":"ef2317ce-2a9b-53bd-bb7f-dc7e1d8aa99e","timestamp":"2026-10-01T10:00:00Z","reason":"DEMO_INITIAL_FAILURE"}]}],"supporting_evidence":[{"source_type":"EVENT","source_id":"ef2317ce-2a9b-53bd-bb7f-dc7e1d8aa99e","timestamp":"2026-10-01T10:00:00Z","reason":"DEMO_INITIAL_FAILURE"},{"source_type":"ANOMALY","source_id":"f0b65b4f-a95d-5ec2-b42f-514c1a4bb1e5","timestamp":"2026-10-01T10:00:01Z","metric_id":"eddfd1ad-5b9c-5fae-a7c6-7dd2f3ffacc9","reason":"DEMO_PACKET_LOSS"}],"contradictory_evidence":[],"limitations":["DEMO_STATIC_FIXTURE","NO_DIRECT_INCIDENT_LOG_REFERENCES"]}],"limitations":["DEMO_STATIC_FIXTURE","NO_DIRECT_INCIDENT_LOG_REFERENCES"],"evidence_count":3,"analysis_version":"RULES_V1"}'::jsonb,
+  '2026-10-01T10:00:05Z',
+  '2026-10-01T10:00:05Z'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.impact_runs (id, rca_run_id, analysis_version, input_fingerprint, topology_fingerprint, status, result, created_at, last_analyzed_at)
+VALUES (
+  '5ce6b2e4-bf40-5a67-a47e-34c13f3d718c',
+  'd61ae586-a513-5b7d-9a36-c418d95a78b9',
+  'IMPACT_RULES_V1',
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+  'ASSESSED',
+  '{"incident_id":"738c7634-2a2b-58b9-beed-a62853c7b7d3","rca_run_id":"d61ae586-a513-5b7d-9a36-c418d95a78b9","status":"ASSESSED","candidate_target_kind":"LINK","candidate_target_id":"195b92f7-e9a1-533e-b923-ffb8a2e60888","entities":[{"kind":"LINK","id":"195b92f7-e9a1-533e-b923-ffb8a2e60888","classification":"OBSERVED","evidence":[{"source_type":"EVENT","source_id":"ef2317ce-2a9b-53bd-bb7f-dc7e1d8aa99e","timestamp":"2026-10-01T10:00:00Z","reason":"DEMO_INITIAL_FAILURE"}],"explanation":"DEMO observed down uplink."},{"kind":"DEVICE","id":"247fd2e3-fd24-5f3e-b798-babffc370f70","classification":"POTENTIAL","evidence":[{"source_type":"EVENT","source_id":"406bc67f-5e93-5d3b-a5a0-4e7398b889b6","timestamp":"2026-10-01T10:00:03Z","reason":"DEMO_DOWNSTREAM_TIMEOUT"}],"explanation":"DEMO potential downstream server impact."},{"kind":"SERVICE","id":"e17fd4b8-aa4e-5413-895f-d5cfd2aeccb0","classification":"POTENTIAL","evidence":[{"source_type":"EVENT","source_id":"406bc67f-5e93-5d3b-a5a0-4e7398b889b6","timestamp":"2026-10-01T10:00:03Z","reason":"DEMO_DOWNSTREAM_TIMEOUT"}],"explanation":"DEMO potential HTTP service impact."}],"chain":[{"step":1,"source_kind":"LINK","source_id":"195b92f7-e9a1-533e-b923-ffb8a2e60888","target_kind":"DEVICE","target_id":"247fd2e3-fd24-5f3e-b798-babffc370f70","relationship":"LINK_ENDPOINT","classification":"POTENTIAL","evidence":[{"source_type":"EVENT","source_id":"ef2317ce-2a9b-53bd-bb7f-dc7e1d8aa99e","timestamp":"2026-10-01T10:00:00Z","reason":"DEMO_INITIAL_FAILURE"}],"explanation":"DEMO physical endpoint relationship."},{"step":2,"source_kind":"DEVICE","source_id":"247fd2e3-fd24-5f3e-b798-babffc370f70","target_kind":"SERVICE","target_id":"e17fd4b8-aa4e-5413-895f-d5cfd2aeccb0","relationship":"HOSTS_SERVICE","classification":"POTENTIAL","evidence":[{"source_type":"EVENT","source_id":"406bc67f-5e93-5d3b-a5a0-4e7398b889b6","timestamp":"2026-10-01T10:00:03Z","reason":"DEMO_DOWNSTREAM_TIMEOUT"}],"explanation":"DEMO hosting relationship."}],"affected_devices":1,"affected_links":1,"affected_services":1,"user_application_impact":"UNKNOWN_UNVERIFIED","topology_input":{},"limitations":["DEMO_STATIC_FIXTURE"],"analysis_version":"IMPACT_RULES_V1"}'::jsonb,
+  '2026-10-01T10:00:06Z',
+  '2026-10-01T10:00:06Z'
+)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.root_causes (id, incident_id, cause_type, device_id, link_id, description, confidence, analysis_method, identified_at, metadata)

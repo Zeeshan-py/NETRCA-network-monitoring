@@ -84,12 +84,15 @@ reruns preserve existing fixture rows, rather than overwrite changes. A conflict
 name/IP with a different ID fails and rolls back; resolve it in the disposable
 database instead of silently overwriting records.
 
-The seed contains a router, switch, server, two links, HTTP service and hosting
-relationship, baseline latency and post-failure packet loss, a log, ordered failure
-and timeout events, an anomaly fixture, incident, cause, five evidence records,
-service impact, advisory recommendation, topology snapshot, fault record, and an
-explicitly fake AI explanation. All are labeled DEMO or carry demo metadata. No
-Mininet, ML, RCA or Gemini execution is claimed.
+The seed contains a router, switch, server, isolated host, two links, HTTP service
+and hosting relationship, baseline latency and post-failure packet loss, a log,
+ordered failure and timeout events, an anomaly fixture, incident membership,
+static RCA and impact-run payloads, cause, five evidence records, service impact,
+advisory recommendation, topology snapshot, fault record, and an explicitly fake
+AI explanation. All are labeled DEMO or carry demo metadata. The isolated host
+exercises disconnected-topology rendering. The stored RCA/impact payloads exercise
+the dashboard only; no Mininet, ML, deterministic RCA/impact invocation, or Gemini
+execution is claimed.
 
 ## Linked Supabase setup
 

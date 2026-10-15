@@ -80,6 +80,18 @@ def test_seed_repeatability_and_evidence_sources(db):
     assert timeline == [("INTERFACE_FAILURE",), ("SERVER_TIMEOUT",)]
 
 
+def test_seed_includes_current_dashboard_analysis_records(db):
+    incident_id = demo_id("incident")
+    isolated = demo_id("DEMO-IsolatedHost")
+    assert db.execute("SELECT count(*) FROM public.links WHERE source_device_id=%s OR destination_device_id=%s",
+                      (isolated, isolated)).fetchone()[0] == 0
+    assert db.execute("SELECT count(*) FROM public.incident_anomalies WHERE incident_id=%s", (incident_id,)).fetchone()[0] == 1
+    rca = db.execute("SELECT status,result->>'status' FROM public.rca_runs WHERE incident_id=%s", (incident_id,)).fetchone()
+    impact = db.execute("SELECT status,result->>'status' FROM public.impact_runs WHERE rca_run_id=(SELECT id FROM public.rca_runs WHERE incident_id=%s)", (incident_id,)).fetchone()
+    assert rca == ('CANDIDATES', 'CANDIDATES')
+    assert impact == ('ASSESSED', 'ASSESSED')
+
+
 @pytest.mark.parametrize("query,params,error", [
     ("UPDATE public.devices SET status='INVALID' WHERE id=%s", (demo_id("DEMO-R1"),), psycopg.errors.CheckViolation),
     ("UPDATE public.links SET destination_device_id=source_device_id WHERE id=%s", (demo_id("uplink"),), psycopg.errors.CheckViolation),
