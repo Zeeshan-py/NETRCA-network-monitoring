@@ -23,7 +23,13 @@ type ViewData = {
   anomalies?: Page<EvidenceRecord>;
   incidents?: Page<Incident>;
 };
-type IncidentAnalysis = { detail?: IncidentDetail; rca?: Record<string, unknown>; impact?: Record<string, unknown> };
+type IncidentAnalysis = {
+  detail?: IncidentDetail;
+  rca?: Record<string, unknown>;
+  rcaError?: string;
+  impact?: Record<string, unknown>;
+  impactError?: string;
+};
 type PageResource = "metrics" | "logs" | "events" | "anomalies" | "incidents";
 
 const sections: Section[] = ["Overview", "Topology", "Evidence", "Anomalies", "Incidents"];
@@ -180,7 +186,9 @@ export function Dashboard() {
     if (detail.status === "fulfilled") next.detail = detail.value;
     else setIncidentError(message(detail.reason));
     if (rca.status === "fulfilled") next.rca = rca.value.data;
+    else next.rcaError = message(rca.reason);
     if (impact.status === "fulfilled") next.impact = impact.value.data;
+    else next.impactError = message(impact.reason);
     setAnalysis(next);
     setIncidentLoading(false);
   }, []);
@@ -354,8 +362,8 @@ export function Dashboard() {
                 {incidentTopologyError && <p className="state-message error-message" role="alert">{incidentTopologyError}</p>}
                 <button className="button secondary" disabled={incidentTopologyLoading} onClick={() => void openIncidentTopology()}>{incidentTopologyLoading ? "Loading stored topology context…" : "Show evidence in stored topology"}</button>
                 <div className="action-row"><button className="button primary" onClick={() => void performAction("RCA run completed.", () => runIncidentRca(selectedId))}>Run deterministic RCA</button><button className="button secondary" onClick={() => void performAction("Impact analysis completed.", () => runIncidentImpact(selectedId))}>Run impact analysis</button></div>
-                <AnalysisPanel title="Root-cause analysis" value={analysis.rca} emptyLabel="No current RCA result is available. Run analysis if enabled on the backend." />
-                <AnalysisPanel title="Impact and failure chain" value={analysis.impact} emptyLabel="No impact result is available. Run analysis after RCA if enabled on the backend." />
+                <AnalysisPanel title="Root-cause analysis" value={analysis.rca} error={analysis.rcaError} emptyLabel="No current RCA result is available. Run analysis if enabled on the backend." />
+                <AnalysisPanel title="Impact and failure chain" value={analysis.impact} error={analysis.impactError} emptyLabel="No impact result is available. Run analysis after RCA if enabled on the backend." />
                 <section className="analysis-block"><h3>Evidence-grounded explanation</h3><p className="muted">This explicit action sends the current validated incident context to the configured backend explanation provider. It may call Gemini if enabled. Nothing is sent automatically when you open or refresh an incident.</p><button className="button secondary" onClick={() => void generateIncidentExplanation(selectedId).then((response) => { setExplanation(response.data); setActionError(undefined); setActionMessage("Explanation generated from the currently validated incident evidence."); }).catch((error) => { setActionError(message(error)); setActionMessage(undefined); })}>Generate explanation</button>{explanation && <ExplanationPanel value={explanation} />}</section>
               </>}
             </State>}
@@ -392,9 +400,9 @@ function RecordTable({ records, timeKey = "timestamp", valueKey = "event_type", 
   if (!records.length) return <p className="state-message">No evidence is attached to this incident.</p>;
   return <div className="table-wrap"><table><thead><tr><th>Time</th><th>Kind</th><th>Source</th><th>Details</th><th>Severity</th></tr></thead><tbody>{records.map((record, index) => <tr key={`${display(record.id)}-${index}`}><td>{formatTime(typeof record[timeKey] === "string" ? record[timeKey] as string : undefined)}</td><td>{display(record.evidence_kind ?? record[valueKey])}</td><td>{display(record.device_id ? (record.device_id as string) : record.link_id ?? record.id)}</td><td>{display(record[detailKey] ?? record.metric_type ?? record.name)}</td><td>{record.severity ? <StatusBadge value={String(record.severity)} /> : "—"}</td></tr>)}</tbody></table></div>;
 }
-function AnalysisPanel({ title, value, emptyLabel }: { title: string; value?: Record<string, unknown>; emptyLabel: string }) {
+function AnalysisPanel({ title, value, error, emptyLabel }: { title: string; value?: Record<string, unknown>; error?: string; emptyLabel: string }) {
   const data = value?.data && typeof value.data === "object" ? value.data as Record<string, unknown> : value;
-  return <section className="analysis-block"><h3>{title}</h3>{!data ? <p className="muted">{emptyLabel}</p> : <AnalysisContent data={data} />}</section>;
+  return <section className="analysis-block"><h3>{title}</h3>{error ? <p className="state-message error-message" role="alert">{error}</p> : !data ? <p className="muted">{emptyLabel}</p> : <AnalysisContent data={data} />}</section>;
 }
 function ExplanationPanel({ value }: { value: Record<string, unknown> }) {
   const labels: Array<[string, string]> = [["summary", "Summary"], ["observed_facts", "Observed evidence"], ["candidate_explanations", "Candidate explanations"], ["failure_chain_explanation", "Failure chain"], ["impact_explanation", "Impact"], ["uncertainties", "Uncertainties"], ["missing_evidence", "Missing evidence"], ["limitations", "Limitations"]];

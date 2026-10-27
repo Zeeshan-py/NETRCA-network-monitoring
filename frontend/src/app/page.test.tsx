@@ -55,10 +55,25 @@ test("loads incident evidence and distinguishes candidate scores from probabilit
   expect(await screen.findByText("Evidence supports an interface fault")).toBeInTheDocument();
   expect(screen.getByText(/uncalibrated points, not probability/)).toBeInTheDocument();
   expect(screen.getByText("Impact and failure chain")).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent("No current impact result");
   fireEvent.click(screen.getByRole("button", { name: "Generate explanation" }));
   expect(await screen.findByText("An interface failure preceded the event.")).toBeInTheDocument();
   expect(api.generateIncidentExplanation).toHaveBeenCalledWith("incident-1");
   await waitFor(() => expect(api.getIncident).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal)));
+});
+
+test("keeps an RCA retrieval failure distinct from an absent RCA result", async () => {
+  healthyResponses();
+  const incident = { id: "incident-2", title: "Unavailable RCA", severity: "MEDIUM", status: "DETECTED", start_time: "2026-10-15T10:00:00Z" };
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [incident] : [], pagination: { page: 1, limit: 20, total: resource === "incidents" ? 1 : 0, pages: resource === "incidents" ? 1 : 0 } }));
+  api.getIncident.mockResolvedValue({ ...incident, events: [], anomalies: [] });
+  api.getIncidentRca.mockRejectedValue(new Error("The database is unavailable."));
+  api.getIncidentImpact.mockResolvedValue({ data: {} });
+  render(<Home />);
+  fireEvent.click(screen.getByRole("button", { name: "Incidents" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Unavailable RCA/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("database is unavailable");
+  expect(screen.queryByText("No current RCA result is available. Run analysis if enabled on the backend.")).not.toBeInTheDocument();
 });
 
 test("switches graph source without retaining a selection from the previous source", async () => {
