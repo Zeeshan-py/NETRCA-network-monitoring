@@ -10,8 +10,9 @@ import {
 } from "@/lib/api";
 import { TopologyExplorer, type TopologySelection } from "@/components/topology-explorer";
 import { TopologyEvidence } from "@/components/topology-evidence";
+import { presentationModeEnabled } from "@/lib/presentation-demo";
 
-type Section = "Overview" | "Topology" | "Evidence" | "Anomalies" | "Incidents";
+type Section = "Overview" | "Topology" | "Evidence" | "Anomalies" | "Incidents" | "Demo Brief";
 type ViewData = {
   api: boolean;
   network?: NetworkStatus;
@@ -32,7 +33,8 @@ type IncidentAnalysis = {
 };
 type PageResource = "metrics" | "logs" | "events" | "anomalies" | "incidents";
 
-const sections: Section[] = ["Overview", "Topology", "Evidence", "Anomalies", "Incidents"];
+const sections: Section[] = ["Overview", "Topology", "Evidence", "Anomalies", "Incidents", "Demo Brief"];
+const presentationDemo = presentationModeEnabled();
 
 function message(error: unknown) {
   return error instanceof Error ? error.message : "The request could not be completed.";
@@ -70,7 +72,7 @@ export function Dashboard() {
   const [incidentError, setIncidentError] = useState<string>();
   const [actionMessage, setActionMessage] = useState<string>();
   const [actionError, setActionError] = useState<string>();
-  const [topologySource, setTopologySource] = useState<GraphSource>("live");
+  const [topologySource, setTopologySource] = useState<GraphSource>(presentationDemo ? "stored" : "live");
   const [topologyGraph, setTopologyGraph] = useState<GraphSummary>();
   const [topologyGraphSource, setTopologyGraphSource] = useState<GraphSource>();
   const [topologyGraphLoading, setTopologyGraphLoading] = useState(false);
@@ -275,38 +277,43 @@ export function Dashboard() {
   const anomalyRecords = data.anomalies?.data ?? [];
   const metricRecords = data.metrics?.data ?? [];
   const logRecords = data.logs?.data ?? [];
+  const degradedDevices = data.topology?.nodes.filter((node) => ["DOWN", "WARNING", "DEGRADED"].includes((node.status ?? node.state ?? "").toUpperCase())).length ?? 0;
+  const openIncidents = incidents.filter((item) => !["RESOLVED", "CLOSED"].includes(item.status.toUpperCase())).length;
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Application navigation">
         <Link className="brand" href="/" aria-label="NetRCA home">NET<span>RCA</span><small>NETWORK OPERATIONS</small></Link>
         <nav className="sidebar-group" aria-label="Workspace">
           <p className="eyebrow">WORKSPACE</p>
-          {sections.map((item) => <button className={`nav-item ${section === item ? "selected" : ""}`} key={item} onClick={() => setSection(item)} aria-current={section === item ? "page" : undefined}>{item}</button>)}
+          {sections.map((item) => <button className={`nav-item ${section === item ? "selected" : ""}`} key={item} onClick={() => { setSection(item); setActionMessage(undefined); setActionError(undefined); }} aria-current={section === item ? "page" : undefined}>{item}</button>)}
         </nav>
-        <div className="sidebar-note"><span className="note-dot" /> PHASE 17 / TOPOLOGY</div>
+        <div className="sidebar-note"><span className="note-dot" /> {presentationDemo ? "PRESENTATION MODE" : "LOCAL OPERATIONS"}</div>
       </aside>
 
       <main className="main-content">
         <header className="topbar">
           <div className="crumb">NETRCA <span>/</span> {section.toUpperCase()}</div>
           <div className="top-actions">
+            {presentationDemo && <span className="demo-status" role="status">Synthetic demo</span>}
             <span className={`api-status ${data.api ? "up" : loading ? "loading" : "unavailable"}`} role="status">{data.api ? "API connected" : loading ? "Checking API…" : "API unavailable"}</span>
             <button className="button secondary" onClick={() => { setTopologyReload((value) => value + 1); void refresh(); }} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh"}</button>
           </div>
         </header>
 
         <section className="hero compact-hero">
-          <p className="eyebrow accent">LIVE DATA · LOCAL API</p>
+          <p className="eyebrow accent">{presentationDemo ? "SYNTHETIC SCENARIO · NO CUSTOMER DATA" : "LIVE DATA · LOCAL API"}</p>
           <h1>Network <em>operations.</em></h1>
-          <p className="hero-description">Review current simulator state and stored evidence, then investigate incidents using the deterministic analysis already enabled by your backend configuration.</p>
+          <p className="hero-description">{presentationDemo ? "Trace a controlled WAN outage from topology and telemetry through correlation, deterministic root-cause analysis, and an evidence-linked impact chain." : "Review current simulator state and stored evidence, then investigate incidents using the deterministic analysis already enabled by your backend configuration."}</p>
         </section>
+
+        {presentationDemo && <aside className="demo-banner" aria-label="Presentation data notice"><strong>Presentation scenario</strong><span>All populated records are synthetic and remain in the browser. Supabase is not seeded, Mininet is not started, and the explanation action does not call Gemini.</span></aside>}
 
         {actionMessage && <p className="notice success-message" role="status">{actionMessage}</p>}
         {actionError && <p className="notice error-message" role="alert">{actionError}</p>}
 
         {section === "Overview" && <div className="dashboard-content">
           <div className="summary-grid">
-            <SummaryCard label="SIMULATOR" value={data.network?.state ?? (errors.network ? "Unavailable" : "—")} detail={data.network?.topology_name ?? "Network status"} />
+            <SummaryCard label={presentationDemo ? "SCENARIO" : "SIMULATOR"} value={presentationDemo ? "READY" : data.network?.state ?? (errors.network ? "Unavailable" : "—")} detail={data.network?.topology_name ?? "Network status"} />
             <SummaryCard label="DEVICES" value={data.network?.device_count ?? data.topology?.nodes.length ?? "—"} detail={`${data.network?.link_count ?? data.topology?.links.length ?? 0} links`} />
             <SummaryCard label="ANOMALIES" value={data.anomalies?.pagination.total ?? "—"} detail={data.anomalies?.data.filter((item) => item.is_anomaly === true).length ? "Anomalies on latest page" : "Stored anomaly history"} />
             <SummaryCard label="INCIDENTS" value={data.incidents?.pagination.total ?? "—"} detail="Stored incident records" />
@@ -325,6 +332,15 @@ export function Dashboard() {
               </State>
             </section>
           </div>
+          <section className="panel situation-panel">
+            <div><PanelHeading eyebrow="OPERATOR BRIEF" title="What needs attention" /><p className="muted">A concise, evidence-grounded handoff for the incident commander.</p></div>
+            <div className="situation-grid">
+              <article><span>Degraded devices</span><strong>{degradedDevices}</strong><small>Directly reported by stored topology</small></article>
+              <article><span>Open incidents</span><strong>{openIncidents}</strong><small>Not resolved or closed</small></article>
+              <article><span>Leading signal</span><strong>{anomalyRecords.length ? "100% loss" : "No signal"}</strong><small>{anomalyRecords.length ? "WAN uplink threshold breach" : "Awaiting anomaly evidence"}</small></article>
+              <article><span>Next action</span><button className="button primary" disabled={!incidents[0]} onClick={() => { if (incidents[0]) { setSection("Incidents"); void loadIncident(incidents[0].id); } }}>Open investigation</button><small>Review evidence before remediation</small></article>
+            </div>
+          </section>
           <section className="panel">
             <PanelHeading eyebrow="COLLECTION" title="Latest monitoring snapshot" />
             <State loading={loading} error={errors.monitoring} empty={!data.monitoring?.devices.length}>
@@ -364,13 +380,25 @@ export function Dashboard() {
                 <div className="action-row"><button className="button primary" onClick={() => void performAction("RCA run completed.", () => runIncidentRca(selectedId))}>Run deterministic RCA</button><button className="button secondary" onClick={() => void performAction("Impact analysis completed.", () => runIncidentImpact(selectedId))}>Run impact analysis</button></div>
                 <AnalysisPanel title="Root-cause analysis" value={analysis.rca} error={analysis.rcaError} emptyLabel="No current RCA result is available. Run analysis if enabled on the backend." />
                 <AnalysisPanel title="Impact and failure chain" value={analysis.impact} error={analysis.impactError} emptyLabel="No impact result is available. Run analysis after RCA if enabled on the backend." />
-                <section className="analysis-block"><h3>Evidence-grounded explanation</h3><p className="muted">This explicit action sends the current validated incident context to the configured backend explanation provider. It may call Gemini if enabled. Nothing is sent automatically when you open or refresh an incident.</p><button className="button secondary" onClick={() => void generateIncidentExplanation(selectedId).then((response) => { setExplanation(response.data); setActionError(undefined); setActionMessage("Explanation generated from the currently validated incident evidence."); }).catch((error) => { setActionError(message(error)); setActionMessage(undefined); })}>Generate explanation</button>{explanation && <ExplanationPanel value={explanation} />}</section>
+                <section className="analysis-block"><h3>Evidence-grounded explanation</h3><p className="muted">{presentationDemo ? "This action replays a static, evidence-linked explanation for the synthetic scenario. It never calls Gemini." : "This explicit action sends the current validated incident context to the configured backend explanation provider. It may call Gemini if enabled. Nothing is sent automatically when you open or refresh an incident."}</p><button className="button secondary" onClick={() => void generateIncidentExplanation(selectedId).then((response) => { setExplanation(response.data); setActionError(undefined); setActionMessage(presentationDemo ? "Static presentation explanation loaded; no external model was called." : "Explanation generated from the currently validated incident evidence."); }).catch((error) => { setActionError(message(error)); setActionMessage(undefined); })}>{presentationDemo ? "Show presentation explanation" : "Generate explanation"}</button>{explanation && <ExplanationPanel value={explanation} />}</section>
               </>}
             </State>}
           </section>
         </div>}
 
-        <footer>NetRCA · Local API integration · Evidence and analysis remain sourced from the backend</footer>
+        {section === "Demo Brief" && <div className="dashboard-content demo-brief">
+          <section className="panel pitch-hero">
+            <div><p className="eyebrow accent">FIRM PITCH · 5 MINUTES</p><h2>From alert noise to an explainable incident narrative.</h2><p>NetRCA keeps every conclusion tied to topology and original evidence, helping operators investigate faster without treating correlation as causation.</p></div>
+            <div className="pitch-metric"><strong>4</strong><span>analysis layers</span><small>Evidence → correlation → RCA → impact</small></div>
+          </section>
+          <div className="brief-grid">
+            <section className="panel"><PanelHeading eyebrow="DEMO FLOW" title="What to show" /><ol className="demo-steps"><li><strong>Overview</strong><span>Frame the outage and operational priority.</span></li><li><strong>Topology</strong><span>Show the failed uplink and disconnected component.</span></li><li><strong>Evidence</strong><span>Trace metrics, logs, and events to stable IDs.</span></li><li><strong>Incidents</strong><span>Open the investigation, RCA candidate, and impact chain.</span></li></ol></section>
+            <section className="panel"><PanelHeading eyebrow="DIFFERENTIATION" title="Why NetRCA" /><ul className="value-list"><li><strong>Deterministic first</strong><span>Rules remain authoritative; AI text cannot change findings.</span></li><li><strong>Evidence linked</strong><span>Claims retain references to original observations.</span></li><li><strong>Safe by default</strong><span>Network controls are local-only and write features are opt-in.</span></li><li><strong>Honest uncertainty</strong><span>Inconclusive results remain inconclusive.</span></li></ul></section>
+          </div>
+          <section className="panel readiness-panel"><PanelHeading eyebrow="COMMERCIAL READINESS" title="Pilot-ready, with production gates visible" /><div className="readiness-grid"><article><StatusBadge value="READY" /><strong>Guided product demonstration</strong><span>Synthetic scenario, responsive UI, repeatable startup, no remote seed.</span></article><article><StatusBadge value="READY" /><strong>Controlled technical pilot</strong><span>PostgreSQL evidence pipeline, deterministic analysis, local-only controls.</span></article><article><StatusBadge value="REQUIRED" /><strong>Customer production deployment</strong><span>Tenant authentication, RBAC, SSO, deployment hardening, SLA operations, and a security review remain required.</span></article></div></section>
+        </div>}
+
+        <footer>NetRCA · {presentationDemo ? "Synthetic presentation scenario · no remote writes" : "Local API integration · Evidence and analysis remain sourced from the backend"}</footer>
       </main>
     </div>
   );
@@ -409,7 +437,7 @@ function ExplanationPanel({ value }: { value: Record<string, unknown> }) {
   return <div className="explanation-claims">{labels.map(([key, label]) => {
     const claims = Array.isArray(value[key]) ? value[key] as Array<Record<string, unknown>> : [];
     return claims.length ? <section key={key}><strong>{label}</strong>{claims.map((claim, index) => <p key={String(claim.claim_id ?? index)}>{display(claim.text)} <small>Evidence references: {Array.isArray(claim.evidence_references) ? claim.evidence_references.length : 0}</small></p>)}</section> : null;
-  })}<p className="muted">The backend response is evidence-linked and remains separate from deterministic RCA findings.</p></div>;
+  })}<p className="muted">The explanation response is evidence-linked and remains separate from deterministic RCA findings.</p></div>;
 }
 function AnalysisContent({ data }: { data: Record<string, unknown> }) {
   const result = data.result && typeof data.result === "object" ? data.result as Record<string, unknown> : data;

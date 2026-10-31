@@ -1,40 +1,179 @@
 # NetRCA
 
-NetRCA is an AI-assisted network root cause analysis and incident response project for a controlled Mininet simulation. The system is being developed in phases; the architecture and requirements are in [`Instruction/`](Instruction/).
+**Evidence-grounded network incident analysis for controlled labs and pilot environments.**
 
-## Current scope
+[![Backend](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)](backend/)
+[![Frontend](https://img.shields.io/badge/frontend-Next.js-111827?logo=nextdotjs&logoColor=white)](frontend/)
+[![Database](https://img.shields.io/badge/database-PostgreSQL%20%2F%20Supabase-3ECF8E?logo=supabase&logoColor=white)](database/)
+[![Network lab](https://img.shields.io/badge/network%20lab-Mininet%20%2B%20Open%20vSwitch-2563EB)](network/)
+[![Status](https://img.shields.io/badge/status-controlled%20pilot-F59E0B)](#project-status)
 
-Phase 1 provides the FastAPI health endpoint and Next.js shell. Phases 2–12 add PostgreSQL persistence, the controlled Mininet lab, monitoring, evidence collection, fault injection, anomaly detection, correlation, graph analysis, RCA, and impact analysis. Phase 13 adds an opt-in backend Gemini explanation that orders evidence-linked claims. Phase 14 hardens local-only API access, request limits, and safe errors. Phase 15 verifies the request path across Mininet and PostgreSQL with rollback fixtures. Phase 16 connects dashboard workflows to the local API. Phase 17 adds a read-only interactive graph using separate live and stored topology sources and navigation through validated stored evidence relationships. See the [Phase 16 report](frontend/PHASE16_REPORT.md) and [Phase 17 report](frontend/PHASE17_REPORT.md) for verification details and limitations.
+NetRCA is an AI-assisted network root cause analysis and incident investigation system. It brings topology, metrics, logs, events, anomalies, incident correlation, deterministic root-cause candidates, failure chains, and potential impact into one traceable workflow. Every analytical conclusion is designed to remain connected to its original evidence.
 
+The repository contains a working local dashboard, a FastAPI backend, PostgreSQL/Supabase persistence, an isolated Mininet laboratory, deterministic analysis services, and an optional Gemini explanation layer. It also includes a browser-only synthetic scenario for reliable demonstrations without Docker, a database seed, Mininet, customer data, or a live Gemini request.
+
+> [!IMPORTANT]
+> NetRCA is currently suitable for development, academic demonstration, and a controlled customer pilot. It is not yet a finished multi-tenant production service. See [Commercial readiness](#commercial-readiness) for the remaining gates.
+
+## Contents
+
+- [Problem and approach](#problem-and-approach)
+- [Core capabilities](#core-capabilities)
+- [System architecture](#system-architecture)
+- [Evidence and analysis flow](#evidence-and-analysis-flow)
+- [Quick presentation setup](#quick-presentation-setup)
+- [Standard local setup](#standard-local-setup)
+- [Configuration and safety](#configuration-and-safety)
+- [API overview](#api-overview)
+- [Testing](#testing)
+- [Repository structure](#repository-structure)
+- [Project status](#project-status)
+- [Commercial readiness](#commercial-readiness)
+
+## Problem and approach
+
+Network incidents rarely arrive as one clear failure. Operators typically receive disconnected symptoms—packet loss, latency spikes, interface transitions, timeouts, and service alerts—and must manually reconstruct the sequence across multiple tools.
+
+NetRCA turns those observations into a structured investigation:
+
+1. Collect validated topology and telemetry.
+2. Preserve metrics, logs, and events as original evidence.
+3. Detect threshold and model-supported anomalies.
+4. Correlate only evidence with explicit shared identities and supported relationships.
+5. Build incident records without duplicating evidence membership.
+6. Rank deterministic root-cause candidates and retain supporting or contradictory evidence.
+7. Trace observed and potential impact separately.
+8. Optionally ask Gemini to summarize the validated result; the model does not replace the deterministic analysis.
+
+## Core capabilities
+
+| Capability | What NetRCA provides |
+| --- | --- |
+| Network laboratory | Controlled Mininet and Open vSwitch topology with guarded lifecycle and fault operations |
+| Topology engine | Stable device/link identities, endpoint validation, component detection, paths, neighbors, and importance analysis |
+| Monitoring | Read-only device, interface, link, and connectivity observations |
+| Evidence pipeline | Validated metrics, logs, events, timestamps, source identities, and deduplication |
+| Fault injection | Explicitly enabled lab-only link failure, interface failure, latency, and packet-loss scenarios |
+| Anomaly detection | Deterministic thresholds with optional Isolation Forest support when sufficient history exists |
+| Incident correlation | Configurable time windows plus direct device, link, service, and topology relationships; time proximity alone is insufficient |
+| Explainable RCA | Rule-scored candidates with evidence references, contradictions, limitations, and inconclusive outcomes |
+| Impact analysis | Failure-chain traversal that distinguishes observed facts from potential downstream impact |
+| AI explanation | Opt-in Gemini narrative built from validated evidence and analysis; never an authority for network control |
+| Operator dashboard | Responsive overview, topology, evidence, anomaly, incident, and demonstration views |
+| Persistence | PostgreSQL/Supabase migrations, RLS, transactional repositories, and rollback-oriented integration tests |
+
+## System architecture
+
+```mermaid
+flowchart TB
+    Operator[Network operator] --> UI[Next.js operator dashboard]
+    UI -->|REST /api/v1| API[FastAPI application]
+
+    subgraph Control[Local control and collection]
+        Lab[Mininet + Open vSwitch lab]
+        Monitor[Monitoring and probe services]
+        Faults[Guarded fault controls]
+        Lab --> Monitor
+        Faults --> Lab
+    end
+
+    subgraph Evidence[Evidence and analysis services]
+        Pipeline[Metrics, logs and events pipeline]
+        Detect[Anomaly detection]
+        Correlate[Event correlation and incidents]
+        Graph[NetworkX topology context]
+        RCA[Deterministic RCA]
+        Impact[Impact and failure-chain analysis]
+        Explain[Optional Gemini explanation]
+
+        Pipeline --> Detect
+        Pipeline --> Correlate
+        Detect --> Correlate
+        Correlate --> Graph
+        Graph --> RCA
+        RCA --> Impact
+        Impact --> Explain
+    end
+
+    API --> Monitor
+    API --> Faults
+    Monitor --> Pipeline
+    API --> Evidence
+    Evidence <--> DB[(PostgreSQL / Supabase)]
+    API --> DB
 ```
-backend/    FastAPI app, configuration, and pytest tests
-frontend/   Next.js app, API client, styling, and Vitest tests
-Instruction/ Original project specifications and design preview
-supabase/  Supabase CLI configuration for the linked project
-database/  Phase 2 database guide, local-only demo seed, and validation
-network/   Phase 3 Mininet setup, usage, and test guide
-topology/  Phase 4 topology engine and Phase 10 graph-analysis guides and reports
-monitoring/ Phase 5 read-only monitoring guide and validation report
-pipeline/  Phase 6 evidence pipeline guide and validation report
-faults/    Phase 7 controlled fault injection guide and validation report
-anomaly/   Phase 8 anomaly detection guide and validation report
-correlation/ Phase 9 correlation guide, schema proposal, and validation report
-rca/       Phase 11 RCA rules, approved schema proposal, and validation report
-impact/    Phase 12 impact rules, approved schema proposal, and validation report
-explanation/ Phase 13 Gemini explanation contract and report
+
+The backend is the trust boundary. Browser code receives only public configuration, while database credentials and the Gemini key remain server-side. Network-changing operations are local-only, require explicit feature flags, and use the established control header.
+
+## Evidence and analysis flow
+
+```mermaid
+flowchart LR
+    T[Topology] --> C[Collection]
+    M[Metrics] --> A[Anomaly detection]
+    L[Logs] --> E[Validated events]
+    C --> M
+    C --> L
+    E --> G[Correlation]
+    A --> G
+    T --> G
+    G --> I[Incident]
+    I --> R[Root-cause candidates]
+    T --> R
+    R --> P[Potential impact chain]
+    P --> X[Evidence-linked explanation]
+
+    classDef observed fill:#0f766e,stroke:#5eead4,color:#ffffff;
+    classDef analysis fill:#1e3a8a,stroke:#93c5fd,color:#ffffff;
+    classDef optional fill:#713f12,stroke:#fde68a,color:#ffffff;
+    class M,L,E,A observed;
+    class G,I,R,P analysis;
+    class X optional;
 ```
 
-## Prerequisites
+NetRCA treats correlation as relationship discovery—not proof of causation. RCA scores are uncalibrated rule points, not probabilities. Missing, stale, malformed, unrelated, or unsupported evidence remains excluded or produces an explicit inconclusive result.
 
+## Quick presentation setup
+
+The fastest way to demonstrate the complete workflow is the synthetic presentation mode. It requires no Docker image, database seed, Mininet process, remote write, or Gemini call.
+
+### Prerequisites
+
+- Windows PowerShell
 - Python 3.11 or newer
 - Node.js 20 or newer and npm
-- Git for version control
+- Backend virtual environment and frontend dependencies installed once
 
-Mininet needs Linux networking support. Ubuntu 26.04.1 LTS under WSL2 is installed on this workstation, and the Phase 3 lab passed real Mininet/Open vSwitch connectivity tests. See the [Phase 3 network guide](network/README.md) for setup and test results.
+### One-time installation
 
-## Backend
+```powershell
+cd backend
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
 
-In PowerShell, from the repository root:
+cd ..\frontend
+npm ci
+cd ..
+```
+
+### Start and stop
+
+```powershell
+.\scripts\start-presentation.ps1
+```
+
+Open `http://127.0.0.1:3000` if the browser does not open automatically. The interface is clearly labeled **Synthetic demo** and includes a sample WAN outage, stored topology, metrics, logs, events, anomalies, an incident, an RCA candidate, and a potential impact chain.
+
+```powershell
+.\scripts\stop-presentation.ps1
+```
+
+Use the [presentation runbook](PRESENTATION.md) for the five-minute narrative and the [reusable pitch deck](presentation.pptx) for a formal product presentation.
+
+## Standard local setup
+
+### 1. Backend
 
 ```powershell
 cd backend
@@ -45,17 +184,17 @@ Copy-Item .env.example .env
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
 
-On Linux or WSL2, activate with `source .venv/bin/activate` and copy the example file with `cp .env.example .env`.
+Backend endpoints:
 
-- API health: `http://localhost:8000/api/v1/health`
-- Swagger UI: `http://localhost:8000/docs`
-- OpenAPI schema: `http://localhost:8000/openapi.json`
+- Health: `http://127.0.0.1:8000/api/v1/health`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- OpenAPI: `http://127.0.0.1:8000/openapi.json`
 
-Run backend tests from `backend/` with `python -m pytest`.
+On Linux or WSL2, activate the environment with `source .venv/bin/activate` and copy the example with `cp .env.example .env`.
 
-## Frontend
+### 2. Frontend
 
-In a second terminal, from the repository root:
+In a second terminal:
 
 ```powershell
 cd frontend
@@ -64,99 +203,162 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`. For a production build, run `npm run build`, then `npm start`. Run checks with `npm test`, `npm run typecheck`, and `npm run lint`.
+Open `http://localhost:3000`. The default frontend API address is `http://localhost:8000/api/v1`.
 
-## Local demonstration workflow
+### 3. Database-backed workflows
 
-Use the frontend and API on the same workstation, bound to loopback. NetRCA
-does not provide user authentication, so do not expose either development
-server to a LAN, reverse proxy, or public network. The dashboard reads the
-current simulator status/topology and database-backed monitoring, metrics,
-logs, events, anomalies, and incidents. Health only means that FastAPI
-responded; database and simulator states are reported separately.
+Add the required server-side values to `backend/.env`, review the migration state, and verify the connection from `backend/`:
 
-1. Configure `frontend/.env.local` with
-   `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1`. Configure
-   `backend/.env` with `NETRCA_CORS_ORIGINS=http://localhost:3000`. Keep
-   `DATABASE_URL` and `GEMINI_API_KEY` only in the backend environment; never
-   put credentials in a `NEXT_PUBLIC_*` variable or paste them into a terminal
-   command. The frontend template already contains the local API URL.
-2. Start the API in one terminal using the [Backend](#backend) command and the
-   frontend in another using the [Frontend](#frontend) command. The default
-   simulation and write flags are off. A status request alone does not start
-   Mininet or write database records.
-3. Open `http://localhost:3000`, select **Refresh**, and verify the API badge,
-   simulator status, topology, monitoring snapshot, and stored lists
-   independently. Empty lists mean no records were returned. A database or
-   connectivity error remains visible in that section. List views expose
-   previous/next controls and the count/page currently displayed.
-4. For a safe fixture-only preview, use the existing
-   `database/seed_local.py` only with a **disposable local PostgreSQL** and its
-   required explicit loopback `NETRCA_LOCAL_DATABASE_URL`. Do not point the
-   seed runner at the linked/cloud database. Seed rows are labeled demo
-   fixtures and do not prove live Mininet or analysis execution. For an actual
-   lab workflow, use the isolated Ubuntu/WSL2 Mininet instructions in
-   [network/README.md](network/README.md), enable only the required backend
-   flags locally, and collect snapshots through the guarded API. Never inject
-   a fault into a real network.
-5. In **Evidence**, submit only the displayed page to correlation; in
-   **Incidents**, select a stored incident to inspect its original event and
-   anomaly references, current RCA candidates, and impact/failure chain. RCA
-   and impact buttons call the existing opt-in endpoints, which can reject the
-   action while their backend write flags are off. The UI labels candidate
-   scores as uncalibrated rule points and distinguishes observed from
-   potential impact. It does not fabricate empty or missing results.
-6. **Generate explanation** is a separate user action and may call the
-   configured Gemini provider when the backend enables it. Page load and
-   refresh never call Gemini. Phase 16 verification used a mocked frontend
-   response and made no live Gemini request. To demonstrate this panel without
-   an external call, use the existing test suite's mocked response; the runtime
-   backend does not currently include a mock-provider setting.
-7. To show an empty state, use a disposable database with no seeded records.
-   To show API/network error states, stop the local API or deliberately use an
-   unavailable local endpoint, then restore the normal configuration. Do not
-   alter security controls to make a request succeed.
-8. Stop the frontend and API with `Ctrl+C`. If the isolated Mininet lab was
-   started, stop it with its guarded API or the owning backend shutdown path,
-   then verify the lab is stopped using the documented Ubuntu checks.
+```powershell
+python -m app.db.check
+```
 
-## Configuration
+Migration and rollback guidance is maintained in [database/README.md](database/README.md). Never apply migrations to an ambiguous target, place credentials in the frontend, or seed the linked/cloud database with demonstration data.
 
-The backend reads `backend/.env` or process environment variables. The frontend reads `frontend/.env.local`. The examples contain only local development values.
+### 4. Mininet laboratory
 
-| Variable | Used by | Purpose |
+Mininet requires a supported Linux environment, Open vSwitch, and elevated network privileges. Windows runs the dashboard and API, while WSL2/Ubuntu can host the isolated lab. Follow [network/README.md](network/README.md) for environment checks, lifecycle commands, smoke tests, and cleanup verification.
+
+Docker is not required for the synthetic presentation mode or the standard Windows dashboard/backend workflow. It is only relevant if you intentionally choose a container-based local database or deployment workflow.
+
+## Configuration and safety
+
+The backend reads `backend/.env`; the frontend reads `frontend/.env.local`. Example files contain no credentials.
+
+| Variable | Scope | Purpose |
 | --- | --- | --- |
-| `NETRCA_CORS_ORIGINS` | Backend | Comma-separated browser origins allowed to call the API; set to the frontend origin |
-| `NETRCA_LOG_LEVEL` | Backend | Application log level |
-| `NEXT_PUBLIC_API_BASE_URL` | Frontend | Browser-accessible API base URL, including `/api/v1` |
-| `SUPABASE_URL` | Backend | Supabase project API URL for later database integration |
+| `NEXT_PUBLIC_API_BASE_URL` | Frontend | Browser-visible API base URL including `/api/v1` |
+| `NEXT_PUBLIC_NETRCA_PRESENTATION_MODE` | Frontend | Enables the explicitly labeled browser-only synthetic fixture |
+| `NETRCA_CORS_ORIGINS` | Backend | Exact browser origins allowed to access the API |
+| `DATABASE_URL` | Backend | PostgreSQL connection string; server-side only |
+| `SUPABASE_URL` | Backend | Supabase project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Backend | Publishable Data API key; not a database password |
-| `DATABASE_URL` | Backend | PostgreSQL connection string, kept server-side |
-| `NETRCA_PIPELINE_WRITES_ENABLED` | Backend | Opt in to local Phase 6 evidence writes; default `false` |
-| `NETRCA_FAULT_INJECTION_ENABLED` | Backend | Opt in to local Phase 7 lab fault controls; default `false` |
-| `NETRCA_ANOMALY_WRITES_ENABLED` | Backend | Opt in to Phase 8 anomaly persistence; local detection remains available |
-| `NETRCA_CORRELATION_WRITES_ENABLED` | Backend | Opt in to Phase 9 incident writes; default `false` |
-| `NETRCA_CORRELATION_WINDOW_SECONDS` | Backend | Maximum direct-correlation window; default 300 seconds |
-| `NETRCA_CORRELATION_MAX_AGE_MINUTES` | Backend | Maximum age of selected evidence; default 1440 minutes |
-| `NETRCA_RCA_WRITES_ENABLED` | Backend | Opt in to Phase 11 persisted analysis; default `false` |
-| `NETRCA_RCA_TIMING_WINDOW_SECONDS` | Backend | Temporal support window for RCA; default 300 seconds |
-| `NETRCA_IMPACT_WRITES_ENABLED` | Backend | Opt in to Phase 12 persisted impact analysis; default `false` |
+| `GEMINI_API_KEY` | Backend | Gemini credential; server-side only |
+| `NETRCA_SIMULATION_ENABLED` | Backend | Opts in to the controlled Mininet lifecycle |
+| `NETRCA_PIPELINE_WRITES_ENABLED` | Backend | Opts in to evidence persistence |
+| `NETRCA_FAULT_INJECTION_ENABLED` | Backend | Opts in to lab-only fault controls |
+| `NETRCA_ANOMALY_WRITES_ENABLED` | Backend | Opts in to anomaly persistence |
+| `NETRCA_CORRELATION_WRITES_ENABLED` | Backend | Opts in to incident correlation writes |
+| `NETRCA_RCA_WRITES_ENABLED` | Backend | Opts in to RCA persistence |
+| `NETRCA_IMPACT_WRITES_ENABLED` | Backend | Opts in to impact persistence |
+| `NETRCA_GEMINI_ENABLED` | Backend | Enables the explicit Gemini explanation action |
 
-If the frontend runs on a different origin, update `NETRCA_CORS_ORIGINS` accordingly. Restart the frontend after changing its environment file. Never put future Gemini keys or Supabase service credentials in a `NEXT_PUBLIC_` variable.
+All network-changing and write paths are disabled by default. Protected local-control routes require `X-NetRCA-Local-Control: 1` in addition to their corresponding feature flag. Do not expose the development API or dashboard to a LAN or the public internet; this build does not yet provide end-user authentication.
 
-The Supabase CLI project configuration is in `supabase/config.toml`. To link a fresh checkout to the remote project, run `npx supabase login` and `npx supabase link --project-ref <project-ref>` from the repository root. CLI authentication is separate from the publishable API key. The backend does not run database queries on startup; use `python -m app.db.check` from `backend/` to verify the configured connection.
+## API overview
 
-## Database setup
+All application routes are under `/api/v1`.
 
-See [database/README.md](database/README.md) for migration, local setup, guarded demo seed, RLS, validation, and rollback instructions. The migration is `supabase/migrations/20261012000100_initial_schema.sql`; after reviewing the linked project and a dry run, apply it from the repository root with `npx supabase db push --linked --skip-vault`. Development fixture rows are never included in that push. The database validation suite can test migration behavior inside a rollback transaction and is documented in the database guide.
+| Area | Representative routes |
+| --- | --- |
+| Health | `GET /health` |
+| Network | `GET /network/status`, `POST /network/start`, `POST /network/stop` |
+| Topology | `GET /topology`, `GET /topology/analysis`, `GET /topology/path` |
+| Monitoring | `GET /network/monitoring`, `POST /network/monitoring/probe` |
+| Evidence | `GET/POST /metrics`, `GET/POST /logs`, `GET/POST /events` |
+| Faults | `GET /faults`, `POST /faults/inject`, `POST /faults/{id}/recover` |
+| Anomalies | `POST /anomalies/detect`, `GET /anomalies` |
+| Incidents | `POST /events/correlate`, `GET /incidents`, `GET /incidents/{id}` |
+| RCA | `POST /incidents/{id}/root-cause/analyze`, `GET /incidents/{id}/root-causes` |
+| Impact | `POST /incidents/{id}/impact/analyze`, `GET /incidents/{id}/failure-chain` |
+| Explanation | `POST /ai/incidents/{id}/explain` |
 
-Phase 6 adds two [evidence pipeline migrations](pipeline/README.md) for observed interface/link metrics and deduplication indexes. Phase 11 adds the approved [RCA runs migration](rca/PHASE11_REPORT.md), and Phase 12 adds the approved [impact runs migration](impact/PHASE12_REPORT.md). These were applied to the linked project without loading development fixtures.
+The generated Swagger UI is the authoritative runtime reference for request and response schemas.
 
-## Network simulation
+## Testing
 
-Simulation is disabled by default. From `backend/`, `python -m app.network.cli environment` reports whether this interpreter can run Mininet. A supported Linux environment with Mininet, Open vSwitch and root privilege is required to start the lab. The [network guide](network/README.md) explains the real smoke test, single-worker local API, security gates and integration test. On Windows, the simulator reports unavailable; the existing API health endpoint remains API-only.
+### Windows backend
 
-## Limitations
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m pytest
+```
 
-The Mininet lab was verified locally under Ubuntu WSL2; its simulation still requires explicit opt-in and root privileges. Monitoring, evidence collection, [controlled fault injection](faults/README.md), [anomaly detection](anomaly/README.md), [incident correlation](correlation/README.md), [rule-based RCA](rca/README.md), and [impact analysis](impact/README.md) are on demand. [Gemini explanations](explanation/README.md) require separate opt-in. Remediation and authentication are outside the current scope. An API connection indicator confirms only that the FastAPI health endpoint responded. It does not indicate database or network health.
-# NETRCA-network-monitoring
+### Frontend
+
+```powershell
+cd frontend
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
+
+### PostgreSQL integration
+
+Database integration suites are opt-in and require an explicitly configured test database. Follow the relevant phase report and use rollback transactions where supported. Do not replace database integration evidence with mocks.
+
+### WSL2 and Mininet
+
+Run the network suites only inside the isolated Linux lab and verify cleanup afterward. Exact commands and environment requirements are in [network/README.md](network/README.md).
+
+## Repository structure
+
+```text
+backend/       FastAPI routes, services, repositories, models, and pytest suites
+frontend/      Next.js dashboard, API client, topology visualization, and Vitest tests
+supabase/      Versioned PostgreSQL migrations and Supabase CLI configuration
+database/      Database setup, verification, rollback, and local fixture guidance
+network/       Mininet/Open vSwitch laboratory and lifecycle validation
+topology/      Topology engine and NetworkX graph-analysis documentation
+monitoring/    Read-only network monitoring implementation and report
+pipeline/      Metrics, logs, events, and evidence persistence
+faults/        Controlled fault-injection implementation and safeguards
+anomaly/       Deterministic and optional ML anomaly detection
+correlation/   Event correlation and incident grouping
+rca/           Explainable deterministic root-cause analysis
+impact/        Impact and failure-chain analysis
+explanation/   Evidence-grounded Gemini explanation contract
+audit/         Cross-phase verification and correction reports
+Instruction/   Original architecture, SRS, PRD, security, ERD, API, and stack documents
+scripts/       Repeatable local presentation start/stop commands
+```
+
+## Project status
+
+The implemented foundation covers the planned investigation path from controlled network observations through an operator-facing explanation:
+
+```text
+Mininet / stored topology
+        → monitoring and evidence
+        → anomaly detection
+        → event correlation
+        → incident grouping
+        → graph context
+        → deterministic RCA
+        → impact and failure chain
+        → optional Gemini explanation
+        → responsive dashboard
+```
+
+The project has separate Windows, PostgreSQL, and WSL2/Mininet validation paths. A passing API health request confirms only that FastAPI responded; database availability, simulator availability, and analysis persistence are reported independently.
+
+Detailed implementation reports are available beside each subsystem, including:
+
+- [Phase 3 network report](network/PHASE3_REPORT.md)
+- [Phase 8 anomaly report](anomaly/PHASE8_REPORT.md)
+- [Phase 9 correlation report](correlation/PHASE9_REPORT.md)
+- [Phase 11 RCA report](rca/PHASE11_REPORT.md)
+- [Phase 12 impact report](impact/PHASE12_REPORT.md)
+- [Phase 13 explanation report](explanation/PHASE13_REPORT.md)
+- [Phase 16 frontend integration report](frontend/PHASE16_REPORT.md)
+- [Phase 17 topology report](frontend/PHASE17_REPORT.md)
+- [Phase 14–18 audit](audit/PHASE14-18_AUDIT_REPORT.md)
+
+## Commercial readiness
+
+NetRCA can be presented today as a working technical prototype and the basis for a controlled pilot. Before offering it as a production multi-tenant service, the following work remains:
+
+- tenant-aware authentication, authorization, and SSO;
+- customer-specific data isolation and audit actor identity;
+- managed deployment, secret rotation, backup, restore, and disaster recovery;
+- production observability, performance/load testing, and service-level objectives;
+- dependency security remediation and independent penetration testing;
+- approved integrations with customer telemetry sources;
+- operational support, licensing, privacy, and data-retention agreements.
+
+The recommended commercial path is to connect one approved lab or read-only telemetry source, validate the evidence model and operator workflow with the customer, and then harden tenancy and deployment around the proven use case.
+
+## Documentation
+
+The original specifications remain unchanged in [`Instruction/`](Instruction/). They define the architecture, API design, security model, ERD, technical stack, product requirements, and software requirements. Current migrations and implementation reports document the delivered behavior where the implementation has evolved from the original plan.

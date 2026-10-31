@@ -83,6 +83,18 @@ function apiBaseUrl(): string {
 }
 
 export async function apiRequest<T>(path: string, options: { signal?: AbortSignal; method?: "GET" | "POST"; body?: unknown; localControl?: boolean } = {}): Promise<T> {
+  if (path !== "/health") {
+    const { presentationModeEnabled, presentationDemoResponse, PresentationDemoError } = await import("@/lib/presentation-demo");
+    if (presentationModeEnabled()) {
+      if (options.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+      try {
+        return presentationDemoResponse(path, options.method ?? "GET") as T;
+      } catch (error) {
+        if (error instanceof PresentationDemoError) throw new ApiError(error.message, error.status, error.code);
+        throw error;
+      }
+    }
+  }
   const headers = new Headers({ Accept: "application/json" });
   if (options.body !== undefined) headers.set("Content-Type", "application/json");
   if (options.localControl) headers.set("X-NetRCA-Local-Control", "1");
