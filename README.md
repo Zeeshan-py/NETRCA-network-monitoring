@@ -305,7 +305,6 @@ docs/
   reports/            Phase implementation, verification, and audit reports
   schemas/            Approved additive schema proposals
   presentations/      Presentation runbook and PowerPoint decks
-Instruction/          Original architecture, SRS, PRD, security, ERD, API, and stack documents
 scripts/              Repeatable local presentation start/stop commands
 ```
 
@@ -318,7 +317,7 @@ All supporting documentation is organized under [`docs/`](docs/INDEX.md):
 - [Approved schema proposals](docs/schemas/INDEX.md)
 - [Presentation resources](docs/presentations/INDEX.md)
 
-The root `README.md` remains the repository landing page. The original project specifications remain unchanged in [`Instruction/`](Instruction/).
+The root `README.md` remains the repository landing page. Original authoring specifications may be kept locally in the ignored `Instruction/` directory; they are not published in this repository.
 
 ## Project status
 
@@ -367,4 +366,4 @@ The recommended commercial path is to connect one approved lab or read-only tele
 
 ## Documentation
 
-The original specifications remain unchanged in [`Instruction/`](Instruction/). They define the architecture, API design, security model, ERD, technical stack, product requirements, and software requirements. Current migrations and implementation reports document the delivered behavior where the implementation has evolved from the original plan.
+The published documentation library is available under [`docs/`](docs/INDEX.md). Current migrations, subsystem guides, and implementation reports document the delivered behavior. Original authoring specifications may be retained locally in the ignored `Instruction/` directory and are intentionally not published to GitHub.

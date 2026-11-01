@@ -9,4 +9,4 @@ This directory is the single entry point for NetRCA supporting documentation. Th
 | [Schema proposals](schemas/INDEX.md) | Approved additive database design proposals and approval boundaries |
 | [Presentations](presentations/INDEX.md) | Demonstration runbook and PowerPoint decks |
 
-The authoritative architecture, requirements, security, API, ERD, and product documents remain unchanged in [`Instruction/`](../Instruction/).
+Original authoring specifications may be retained locally in the ignored `Instruction/` directory. The published guides, reports, schema proposals, and presentation resources in this directory are the GitHub-accessible documentation set.

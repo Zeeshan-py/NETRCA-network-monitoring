@@ -29,4 +29,4 @@ Approved schema proposals are collected in the adjacent schema library:
 - [Phase 11 RCA runs schema proposal](../schemas/phase11-rca-runs.md)
 - [Phase 12 impact runs schema proposal](../schemas/phase12-impact-runs.md)
 
-The original project specifications remain unchanged in [`Instruction/`](../../Instruction/).
+Original authoring specifications may be retained locally in the ignored `Instruction/` directory and are not part of the published report library.

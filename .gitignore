@@ -1,7 +1,7 @@
 .env
 .env.*
 !.env.example
-Instructionn/
+Instruction/
 __pycache__/
 *.py[cod]
 .pytest_cache/
