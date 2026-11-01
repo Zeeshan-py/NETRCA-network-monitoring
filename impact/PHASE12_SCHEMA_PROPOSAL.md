@@ -68,4 +68,4 @@ idempotent store keyed to the RCA run, and the existing local-only guarded
 `POST /api/v1/incidents/{id}/impact/analyze` plus read-only impact and
 failure-chain routes. An inconclusive RCA run may yield an `INCONCLUSIVE`
 impact run; a candidate alone never proves downstream or user impact. See
-[PHASE12_REPORT.md](PHASE12_REPORT.md) for validation and limitations.
+[Phase 12 report](../docs/reports/PHASE12_REPORT.md) for validation and limitations.

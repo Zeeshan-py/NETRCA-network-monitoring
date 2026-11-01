@@ -213,4 +213,4 @@ npm test
 ```
 
 The integration suite is skipped unless explicitly opted in. See
-`database/PHASE2_REPORT.md` for actual execution results and remaining limitations.
+See the [Phase 2 report](../docs/reports/PHASE2_REPORT.md) for actual execution results and remaining limitations.

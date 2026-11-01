@@ -54,7 +54,7 @@ version, timing window, and limitations. A unique key reuses identical runs;
 later analyses update `last_analyzed_at` with wall-clock time. Distinct inputs
 create historical runs. Inconclusive runs persist normally.
 
-The [rule list and exact integer contributions](README.md) are authoritative.
+The [rule list and exact integer contributions](../../rca/README.md) are authoritative.
 Candidates require direct failure/state-down evidence. Following symptoms and
 graph cuts only add support; earlier symptoms and `RESOLVED` events provide
 contradictory evidence. Scores are uncalibrated rule points, **not** confidence

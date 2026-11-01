@@ -15,7 +15,7 @@ zero. Explicit operator ingestion, paginated history, resource validation,
 observation-key conflicts, active-event deduplication, and safe storage errors
 are implemented. State-transition events come from an earlier stored state,
 not an assumed baseline. Details and endpoint contracts are in the
-[pipeline guide](README.md).
+[pipeline guide](../../pipeline/README.md).
 
 The linked Supabase project was reachable from Windows. Both Phase 6
 migrations were dry-run and applied through the linked Supabase CLI project:

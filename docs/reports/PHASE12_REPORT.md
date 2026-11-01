@@ -11,7 +11,7 @@ one-hop physical/hosting chains. Directly evidenced components are labeled
 `POTENTIAL`. No path beyond one hop, directed service dependency, confirmed
 causality, impact severity, customer count, or application outage is invented.
 Inconclusive inputs persist as `INCONCLUSIVE` with empty impact entities.
-Exact rules and API behavior are in [README.md](README.md).
+Exact rules and API behavior are in the [impact guide](../../impact/README.md).
 
 Files created: `supabase/migrations/20261014000101_phase12_impact_runs.sql`,
 `backend/app/impact/{__init__,models,engine,store}.py`,

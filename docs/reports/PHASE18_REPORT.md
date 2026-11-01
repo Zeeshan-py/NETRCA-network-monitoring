@@ -110,7 +110,7 @@ reported as passed.
 - `database/README.md` — documents the expanded fixture and its non-live limits.
 - `database/tests/test_schema.py` — asserts the new seed records required by the
   current dashboard are present.
-- `testing/PHASE18_REPORT.md` — this verification report.
+- `docs/reports/PHASE18_REPORT.md` — this verification report.
 
 No migration, API endpoint, frontend product feature, authentication control,
 Gemini configuration, fault control, or Mininet configuration changed.

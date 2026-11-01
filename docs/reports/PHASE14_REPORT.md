@@ -94,6 +94,6 @@ Phase 14 implementation and tests:
 - `backend/tests/test_security_database_integration.py` (new)
 - `backend/tests/test_database.py`
 - `README.md`
-- `security/PHASE14_REPORT.md` (new)
+- `docs/reports/PHASE14_REPORT.md` (new)
 
 The pre-existing `.gitignore` edit (`Instructionn/`) remains untouched and unstaged. No original `Instruction/` document was modified. Final Git state is reported alongside this report; the Phase 14 work remains local for review.

@@ -309,7 +309,7 @@ correlation/   Event correlation and incident grouping
 rca/           Explainable deterministic root-cause analysis
 impact/        Impact and failure-chain analysis
 explanation/   Evidence-grounded Gemini explanation contract
-audit/         Cross-phase verification and correction reports
+docs/reports/  Central index and complete set of phase implementation reports
 Instruction/   Original architecture, SRS, PRD, security, ERD, API, and stack documents
 scripts/       Repeatable local presentation start/stop commands
 ```
@@ -333,17 +333,17 @@ Mininet / stored topology
 
 The project has separate Windows, PostgreSQL, and WSL2/Mininet validation paths. A passing API health request confirms only that FastAPI responded; database availability, simulator availability, and analysis persistence are reported independently.
 
-Detailed implementation reports are available beside each subsystem, including:
+All implementation and verification reports are consolidated in the [phase report library](docs/reports/README.md). Key reports include:
 
-- [Phase 3 network report](network/PHASE3_REPORT.md)
-- [Phase 8 anomaly report](anomaly/PHASE8_REPORT.md)
-- [Phase 9 correlation report](correlation/PHASE9_REPORT.md)
-- [Phase 11 RCA report](rca/PHASE11_REPORT.md)
-- [Phase 12 impact report](impact/PHASE12_REPORT.md)
-- [Phase 13 explanation report](explanation/PHASE13_REPORT.md)
-- [Phase 16 frontend integration report](frontend/PHASE16_REPORT.md)
-- [Phase 17 topology report](frontend/PHASE17_REPORT.md)
-- [Phase 14–18 audit](audit/PHASE14-18_AUDIT_REPORT.md)
+- [Phase 3 network report](docs/reports/PHASE3_REPORT.md)
+- [Phase 8 anomaly report](docs/reports/PHASE8_REPORT.md)
+- [Phase 9 correlation report](docs/reports/PHASE9_REPORT.md)
+- [Phase 11 RCA report](docs/reports/PHASE11_REPORT.md)
+- [Phase 12 impact report](docs/reports/PHASE12_REPORT.md)
+- [Phase 13 explanation report](docs/reports/PHASE13_REPORT.md)
+- [Phase 16 frontend integration report](docs/reports/PHASE16_REPORT.md)
+- [Phase 17 topology report](docs/reports/PHASE17_REPORT.md)
+- [Phase 14–18 audit](docs/reports/PHASE14-18_AUDIT_REPORT.md)
 
 ## Commercial readiness
 

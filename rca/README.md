@@ -43,5 +43,5 @@ of the validated inputs, relevant stored topology, rule version, and window.
 Repeated identical runs reuse one row under transaction-scoped advisory locks
 and update its last-analysis time. A changed input creates a separate run. An
 inconclusive result is stored without inventing a `root_causes` row or writing
-an unsupported confidence value. See [PHASE11_REPORT.md](PHASE11_REPORT.md)
+an unsupported confidence value. See the [Phase 11 report](../docs/reports/PHASE11_REPORT.md)
 for live schema checks, test commands, results, and limits.

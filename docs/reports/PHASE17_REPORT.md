@@ -49,7 +49,7 @@ Browser smoke test against the local frontend and real local API:
 - `frontend/src/components/topology-evidence.tsx` and its tests — paginated navigation to stored evidence.
 - `frontend/src/components/dashboard.tsx`, `frontend/src/app/globals.css`, and `frontend/src/app/page.test.tsx` — dashboard integration, styling, and source/context flows.
 - `README.md` — Phase 17 scope and report link.
-- `frontend/PHASE17_REPORT.md` — this report.
+- `docs/reports/PHASE17_REPORT.md` — this report.
 
 ## Final repository state
 

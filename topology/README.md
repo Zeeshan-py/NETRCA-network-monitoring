@@ -41,7 +41,7 @@ From `backend/`, run offline tests with `python -m pytest tests/test_topology.py
 tests/test_topology_database_integration.py -q`; its inserted records and
 snapshot are rolled back. Run the existing real Mininet suite in Ubuntu with
 `NETRCA_RUN_MININET_TESTS=1 python -m pytest -q`. See
-[PHASE4_REPORT.md](PHASE4_REPORT.md) for the results on this workstation.
+[Phase 4 report](../docs/reports/PHASE4_REPORT.md) for the results on this workstation.
 
 Phase 4 does not implement update/delete endpoints, frontend graph rendering,
 automatic discovery or sync, monitoring, faults, RCA, or AI. Persistent writes
@@ -57,7 +57,7 @@ The live source requires a running simulator and uses deterministic runtime
 UUIDs; the stored source uses database UUIDs. They are separate identity spaces.
 `GET /api/v1/incidents/{incident_id}/topology-context` uses **stored** topology
 only, since incident evidence references persisted IDs. All routes are read-only
-and local-only. See [PHASE10_REPORT.md](PHASE10_REPORT.md) for examples and tests.
+and local-only. See the [Phase 10 report](../docs/reports/PHASE10_REPORT.md) for examples and tests.
 
 Connectivity and shortest paths describe physical adjacency, including links
 whose recorded status is `DOWN`; they are not traffic reachability or live

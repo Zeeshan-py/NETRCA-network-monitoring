@@ -131,4 +131,4 @@ Phase 3 has not been started. It requires explicit approval before work begins.
 - `database/tests/test_schema.py`: actual PostgreSQL integration validation.
 - `backend/app/core/config.py`, `backend/app/db/*`, `backend/requirements.txt`,
   `backend/tests/test_database.py`: server-side DB configuration, access and tests.
-- `database/README.md`, `database/PHASE2_REPORT.md`, `README.md`: setup and findings.
+- `database/README.md`, `docs/reports/PHASE2_REPORT.md`, `README.md`: setup and findings.

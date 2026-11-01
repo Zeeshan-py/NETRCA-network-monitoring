@@ -78,7 +78,7 @@ After the Mininet and E2E runs, a read-only WSL check found no network namespace
 - `backend/tests/test_pipeline_database_integration.py` — transaction test double accepts transaction options.
 - `backend/tests/test_topology_database_integration.py` — transaction test double accepts transaction options.
 - `backend/tests/test_e2e_workflow_database_integration.py` — opt-in real Mininet/PostgreSQL complete API workflow with rollback.
-- `testing/PHASE15_REPORT.md` — this report.
+- `docs/reports/PHASE15_REPORT.md` — this report.
 
 The Phase 13 and Phase 14 reports and existing phase reports were reviewed. No original `Instruction/` file was changed. No migration was applied. No commit, push, deployment, live Gemini request, or external-network fault was performed.
 
@@ -95,5 +95,5 @@ The only unrelated pre-existing change is `.gitignore` (`Instructionn/`); it rem
  M backend/tests/test_pipeline_database_integration.py
  M backend/tests/test_topology_database_integration.py
 ?? backend/tests/test_e2e_workflow_database_integration.py
-?? testing/PHASE15_REPORT.md
+?? docs/reports/PHASE15_REPORT.md
 ```

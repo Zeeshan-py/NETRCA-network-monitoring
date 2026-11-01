@@ -62,4 +62,4 @@ sudo env NETRCA_RUN_MININET_TESTS=1 ~/netrca-venv/bin/python -m pytest -q --tb=s
 ```
 
 All commands assume the current directory is `backend/`. See
-[PHASE5_REPORT.md](PHASE5_REPORT.md) for verified results and limitations.
+[Phase 5 report](../docs/reports/PHASE5_REPORT.md) for verified results and limitations.

@@ -53,7 +53,7 @@ Not run: backend regression tests, PostgreSQL rollback/E2E tests, live Mininet t
 - `frontend/src/lib/api.test.ts` — API client contract, pagination, topology fallback, security-header, validation, and network failure tests.
 - `frontend/src/app/page.test.tsx` — component coverage for API-backed views, empty/error states, incident evidence, candidate labeling, and explicit explanation behavior.
 - `README.md` — Phase 16 scope and local demo procedure.
-- `frontend/PHASE16_REPORT.md` — this report.
+- `docs/reports/PHASE16_REPORT.md` — this report.
 
 ## Limitations and unverified workflows
 
@@ -66,6 +66,6 @@ Not run: backend regression tests, PostgreSQL rollback/E2E tests, live Mininet t
 
 ## Git state
 
-Branch: `main`, still at `8b97d79` (`Complete Phase 15 end-to-end verification`); no commit or push was made. Final changes are unstaged. Modified tracked files: `README.md`, `frontend/src/app/globals.css`, `frontend/src/app/page.test.tsx`, `frontend/src/app/page.tsx`, and `frontend/src/lib/api.ts`. New untracked files: `frontend/PHASE16_REPORT.md`, `frontend/src/components/dashboard.tsx`, and `frontend/src/lib/api.test.ts`.
+Branch: `main`, still at `8b97d79` (`Complete Phase 15 end-to-end verification`); no commit or push was made. Final changes are unstaged. Modified tracked files: `README.md`, `frontend/src/app/globals.css`, `frontend/src/app/page.test.tsx`, `frontend/src/app/page.tsx`, and `frontend/src/lib/api.ts`. New untracked files: `docs/reports/PHASE16_REPORT.md`, `frontend/src/components/dashboard.tsx`, and `frontend/src/lib/api.test.ts`.
 
 The pre-existing `.gitignore` modification remains untouched and unstaged. No `Instruction/` files, backend files, migrations, or environment settings were changed. There are no staged changes.
