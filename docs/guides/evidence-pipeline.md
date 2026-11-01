@@ -97,4 +97,4 @@ Real database tests use `NETRCA_RUN_PIPELINE_DB_TESTS=1`; the combined Windows
 PostgreSQL and Ubuntu WSL Mininet test uses
 `NETRCA_RUN_PIPELINE_LAB_TESTS=1`. Both database tests roll back their rows.
 Existing real Linux Mininet tests use `NETRCA_RUN_MININET_TESTS=1` inside
-Ubuntu. See the [Phase 6 report](../docs/reports/PHASE6_REPORT.md) for exact results and limits.
+Ubuntu. See the [Phase 6 report](../reports/PHASE6_REPORT.md) for exact results and limits.

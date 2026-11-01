@@ -212,5 +212,5 @@ cd ../frontend
 npm test
 ```
 
-The integration suite is skipped unless explicitly opted in. See
-See the [Phase 2 report](../docs/reports/PHASE2_REPORT.md) for actual execution results and remaining limitations.
+The integration suite is skipped unless explicitly opted in. See the
+[Phase 2 report](../reports/PHASE2_REPORT.md) for actual execution results and remaining limitations.

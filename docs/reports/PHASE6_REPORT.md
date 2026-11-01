@@ -15,7 +15,7 @@ zero. Explicit operator ingestion, paginated history, resource validation,
 observation-key conflicts, active-event deduplication, and safe storage errors
 are implemented. State-transition events come from an earlier stored state,
 not an assumed baseline. Details and endpoint contracts are in the
-[pipeline guide](../../pipeline/README.md).
+[pipeline guide](../guides/evidence-pipeline.md).
 
 The linked Supabase project was reachable from Windows. Both Phase 6
 migrations were dry-run and applied through the linked Supabase CLI project:
@@ -33,7 +33,7 @@ Changed files: `backend/app/pipeline/{models,store}.py`,
 `backend/app/core/config.py`, `backend/.env.example`, the three
 `backend/tests/test_pipeline*.py` files, the two Phase 6 SQL migrations,
 `pipeline/{README,PHASE6_REPORT}.md`, the root `README.md`, and
-`monitoring/README.md`. `backend/app/pipeline/__init__.py` marks the new
+`docs/guides/network-monitoring.md`. `backend/app/pipeline/__init__.py` marks the new
 package. No frontend or earlier-phase implementation was replaced.
 
 ## Validation

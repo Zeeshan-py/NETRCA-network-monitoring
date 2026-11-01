@@ -3,7 +3,7 @@
 The user approved this exact additive schema on 2026-10-14. It was saved as
 `supabase/migrations/20261014000100_phase11_rca_runs.sql`, validated inside a
 rolled-back transaction, and applied to the verified linked database through
-`supabase migration up --linked`. See the [Phase 11 report](../docs/reports/PHASE11_REPORT.md).
+`supabase migration up --linked`. See the [Phase 11 report](../reports/PHASE11_REPORT.md).
 
 ## Verified relationships and gap
 

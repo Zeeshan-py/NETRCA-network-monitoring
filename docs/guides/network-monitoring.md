@@ -5,7 +5,7 @@ topology. The monitoring service is on demand. It does not collect continuously
 or write to Supabase, and it does not need database credentials. The returned
 Pydantic models (`MonitoringSnapshot` and `ProbeReading`) are the interface for
 later data processing; this phase does not implement that pipeline.
-The separate [Phase 6 pipeline](../pipeline/README.md) can persist selected
+The separate [Phase 6 pipeline](evidence-pipeline.md) can persist selected
 readings through explicit, protected collection operations.
 
 `GET /api/v1/network/monitoring` returns a UTC-timestamped snapshot with the
@@ -62,4 +62,4 @@ sudo env NETRCA_RUN_MININET_TESTS=1 ~/netrca-venv/bin/python -m pytest -q --tb=s
 ```
 
 All commands assume the current directory is `backend/`. See
-[Phase 5 report](../docs/reports/PHASE5_REPORT.md) for verified results and limitations.
+[Phase 5 report](../reports/PHASE5_REPORT.md) for verified results and limitations.

@@ -117,7 +117,7 @@ or tested in Phase 3 on this computer.**
 
 ## Setup and limitations
 
-`network/README.md` gives the recommended Ubuntu WSL2 installation path,
+`docs/guides/mininet-lab.md` gives the recommended Ubuntu WSL2 installation path,
 Mininet/OVS prerequisites, root requirement, in-place `/mnt/d/...` path,
 separate Linux venv, environment probe, smoke command, API examples, offline
 test, real test, and VM fallback if WSL2 cannot run OVS. The Linux commands

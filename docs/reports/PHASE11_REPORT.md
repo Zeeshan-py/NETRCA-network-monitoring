@@ -13,9 +13,9 @@ remediation, frontend, or confirmed-root-cause behavior was added.
 Files added: `supabase/migrations/20261014000100_phase11_rca_runs.sql`,
 `backend/app/rca/{__init__,models,engine,store}.py`, `backend/app/api/rca.py`,
 `backend/tests/test_rca.py`, `backend/tests/test_rca_database_integration.py`,
-`rca/README.md`, and this report. Files modified: `backend/app/main.py`,
+`docs/guides/root-cause-analysis.md`, and this report. Files modified: `backend/app/main.py`,
 `backend/app/core/config.py`, `backend/.env.example`, root `README.md`, and
-`rca/PHASE11_SCHEMA_PROPOSAL.md` (approval/application status only). The
+`docs/schemas/phase11-rca-runs.md` (approval/application status only). The
 pre-existing `.gitignore` edit and all original `Instruction/` files were
 preserved.
 
@@ -54,7 +54,7 @@ version, timing window, and limitations. A unique key reuses identical runs;
 later analyses update `last_analyzed_at` with wall-clock time. Distinct inputs
 create historical runs. Inconclusive runs persist normally.
 
-The [rule list and exact integer contributions](../../rca/README.md) are authoritative.
+The [rule list and exact integer contributions](../guides/root-cause-analysis.md) are authoritative.
 Candidates require direct failure/state-down evidence. Following symptoms and
 graph cuts only add support; earlier symptoms and `RESOLVED` events provide
 contradictory evidence. Scores are uncalibrated rule points, **not** confidence

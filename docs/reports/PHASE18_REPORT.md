@@ -107,7 +107,7 @@ reported as passed.
 
 - `database/seeds/development_seed.sql` — extends the existing local-only fixture
   with a disconnected component and static current analysis records.
-- `database/README.md` — documents the expanded fixture and its non-live limits.
+- `docs/guides/database.md` — documents the expanded fixture and its non-live limits.
 - `database/tests/test_schema.py` — asserts the new seed records required by the
   current dashboard are present.
 - `docs/reports/PHASE18_REPORT.md` — this verification report.

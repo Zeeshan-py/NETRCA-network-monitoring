@@ -27,7 +27,7 @@ The output separates observed facts, unconfirmed RCA candidates, potential
 failure-chain exposure, observed versus potential impact, uncertainty,
 missing impact analysis, and limitations. Inconclusive RCA/impact remains
 explicit. Rule scores are not expressed as probabilities; user/application
-impact remains unknown. See the [explanation guide](../../explanation/README.md) for configuration,
+impact remains unknown. See the [explanation guide](../guides/gemini-explanation.md) for configuration,
 contracts, representative claim, and response errors.
 
 ## Persistence and schema

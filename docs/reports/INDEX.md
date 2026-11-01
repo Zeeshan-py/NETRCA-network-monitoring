@@ -23,10 +23,10 @@ This directory is the central index for NetRCA implementation, verification, and
 | 18 | Demonstration dataset and UI verification | [Phase 18 report](PHASE18_REPORT.md) |
 | 14–18 | Cross-phase audit and corrections | [Phase 14–18 audit](PHASE14-18_AUDIT_REPORT.md) |
 
-Schema proposals remain beside their owning modules because they document migration decisions and approval boundaries:
+Approved schema proposals are collected in the adjacent schema library:
 
-- [Phase 9 incident-anomaly schema proposal](../../correlation/PHASE9_SCHEMA_PROPOSAL.md)
-- [Phase 11 RCA runs schema proposal](../../rca/PHASE11_SCHEMA_PROPOSAL.md)
-- [Phase 12 impact runs schema proposal](../../impact/PHASE12_SCHEMA_PROPOSAL.md)
+- [Phase 9 incident-anomaly schema proposal](../schemas/phase9-incident-anomalies.md)
+- [Phase 11 RCA runs schema proposal](../schemas/phase11-rca-runs.md)
+- [Phase 12 impact runs schema proposal](../schemas/phase12-impact-runs.md)
 
 The original project specifications remain unchanged in [`Instruction/`](../../Instruction/).

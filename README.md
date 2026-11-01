@@ -5,7 +5,7 @@
 [![Backend](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)](backend/)
 [![Frontend](https://img.shields.io/badge/frontend-Next.js-111827?logo=nextdotjs&logoColor=white)](frontend/)
 [![Database](https://img.shields.io/badge/database-PostgreSQL%20%2F%20Supabase-3ECF8E?logo=supabase&logoColor=white)](database/)
-[![Network lab](https://img.shields.io/badge/network%20lab-Mininet%20%2B%20Open%20vSwitch-2563EB)](network/)
+[![Network lab](https://img.shields.io/badge/network%20lab-Mininet%20%2B%20Open%20vSwitch-2563EB)](docs/guides/mininet-lab.md)
 [![Status](https://img.shields.io/badge/status-controlled%20pilot-F59E0B)](#project-status)
 
 NetRCA is an AI-assisted network root cause analysis and incident investigation system. It brings topology, metrics, logs, events, anomalies, incident correlation, deterministic root-cause candidates, failure chains, and potential impact into one traceable workflow. Every analytical conclusion is designed to remain connected to its original evidence.
@@ -27,6 +27,7 @@ The repository contains a working local dashboard, a FastAPI backend, PostgreSQL
 - [API overview](#api-overview)
 - [Testing](#testing)
 - [Repository structure](#repository-structure)
+- [Documentation library](#documentation-library)
 - [Project status](#project-status)
 - [Commercial readiness](#commercial-readiness)
 
@@ -169,7 +170,7 @@ Open `http://127.0.0.1:3000` if the browser does not open automatically. The int
 .\scripts\stop-presentation.ps1
 ```
 
-Use the [presentation runbook](PRESENTATION.md) for the five-minute narrative and the [reusable pitch deck](presentation.pptx) for a formal product presentation.
+Use the [presentation runbook](docs/presentations/PRESENTATION_RUNBOOK.md) for the five-minute narrative and the [reusable pitch deck](docs/presentations/NetRCA_Product_Pitch_Deck.pptx) for a formal product presentation.
 
 ## Standard local setup
 
@@ -213,11 +214,11 @@ Add the required server-side values to `backend/.env`, review the migration stat
 python -m app.db.check
 ```
 
-Migration and rollback guidance is maintained in [database/README.md](database/README.md). Never apply migrations to an ambiguous target, place credentials in the frontend, or seed the linked/cloud database with demonstration data.
+Migration and rollback guidance is maintained in [docs/guides/database.md](docs/guides/database.md). Never apply migrations to an ambiguous target, place credentials in the frontend, or seed the linked/cloud database with demonstration data.
 
 ### 4. Mininet laboratory
 
-Mininet requires a supported Linux environment, Open vSwitch, and elevated network privileges. Windows runs the dashboard and API, while WSL2/Ubuntu can host the isolated lab. Follow [network/README.md](network/README.md) for environment checks, lifecycle commands, smoke tests, and cleanup verification.
+Mininet requires a supported Linux environment, Open vSwitch, and elevated network privileges. Windows runs the dashboard and API, while WSL2/Ubuntu can host the isolated lab. Follow [docs/guides/mininet-lab.md](docs/guides/mininet-lab.md) for environment checks, lifecycle commands, smoke tests, and cleanup verification.
 
 Docker is not required for the synthetic presentation mode or the standard Windows dashboard/backend workflow. It is only relevant if you intentionally choose a container-based local database or deployment workflow.
 
@@ -290,29 +291,34 @@ Database integration suites are opt-in and require an explicitly configured test
 
 ### WSL2 and Mininet
 
-Run the network suites only inside the isolated Linux lab and verify cleanup afterward. Exact commands and environment requirements are in [network/README.md](network/README.md).
+Run the network suites only inside the isolated Linux lab and verify cleanup afterward. Exact commands and environment requirements are in [docs/guides/mininet-lab.md](docs/guides/mininet-lab.md).
 
 ## Repository structure
 
 ```text
-backend/       FastAPI routes, services, repositories, models, and pytest suites
-frontend/      Next.js dashboard, API client, topology visualization, and Vitest tests
-supabase/      Versioned PostgreSQL migrations and Supabase CLI configuration
-database/      Database setup, verification, rollback, and local fixture guidance
-network/       Mininet/Open vSwitch laboratory and lifecycle validation
-topology/      Topology engine and NetworkX graph-analysis documentation
-monitoring/    Read-only network monitoring implementation and report
-pipeline/      Metrics, logs, events, and evidence persistence
-faults/        Controlled fault-injection implementation and safeguards
-anomaly/       Deterministic and optional ML anomaly detection
-correlation/   Event correlation and incident grouping
-rca/           Explainable deterministic root-cause analysis
-impact/        Impact and failure-chain analysis
-explanation/   Evidence-grounded Gemini explanation contract
-docs/reports/  Central index and complete set of phase implementation reports
-Instruction/   Original architecture, SRS, PRD, security, ERD, API, and stack documents
-scripts/       Repeatable local presentation start/stop commands
+backend/              FastAPI application, analysis services, repositories, and tests
+frontend/             Next.js dashboard, API client, visualizations, and tests
+database/             Database setup, validation, rollback, and fixture utilities
+supabase/             Versioned PostgreSQL migrations and Supabase configuration
+docs/
+  guides/             Subsystem setup and implementation guides
+  reports/            Phase implementation, verification, and audit reports
+  schemas/            Approved additive schema proposals
+  presentations/      Presentation runbook and PowerPoint decks
+Instruction/          Original architecture, SRS, PRD, security, ERD, API, and stack documents
+scripts/              Repeatable local presentation start/stop commands
 ```
+
+## Documentation library
+
+All supporting documentation is organized under [`docs/`](docs/INDEX.md):
+
+- [Subsystem guides](docs/guides/INDEX.md)
+- [Phase and audit reports](docs/reports/INDEX.md)
+- [Approved schema proposals](docs/schemas/INDEX.md)
+- [Presentation resources](docs/presentations/INDEX.md)
+
+The root `README.md` remains the repository landing page. The original project specifications remain unchanged in [`Instruction/`](Instruction/).
 
 ## Project status
 
@@ -333,7 +339,7 @@ Mininet / stored topology
 
 The project has separate Windows, PostgreSQL, and WSL2/Mininet validation paths. A passing API health request confirms only that FastAPI responded; database availability, simulator availability, and analysis persistence are reported independently.
 
-All implementation and verification reports are consolidated in the [phase report library](docs/reports/README.md). Key reports include:
+All implementation and verification reports are consolidated in the [phase report library](docs/reports/INDEX.md). Key reports include:
 
 - [Phase 3 network report](docs/reports/PHASE3_REPORT.md)
 - [Phase 8 anomaly report](docs/reports/PHASE8_REPORT.md)

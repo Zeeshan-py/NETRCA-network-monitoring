@@ -1,7 +1,7 @@
 """Opt-in integration suite. DDL/fixtures/test writes ALWAYS roll back.
 
 Run from the repository root using backend/.venv/Scripts/python.exe -m pytest
-database/tests -q. Set NETRCA_RUN_DATABASE_TESTS=1 first; see database/README.md.
+database/tests -q. Set NETRCA_RUN_DATABASE_TESTS=1 first; see docs/guides/database.md.
 """
 import os
 from pathlib import Path

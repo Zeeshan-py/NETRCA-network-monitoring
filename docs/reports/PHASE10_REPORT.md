@@ -18,7 +18,7 @@ Files added: `backend/app/topology/analysis.py`,
 `backend/app/api/graph_analysis.py`, `backend/tests/test_graph_analysis.py`,
 and this report. Files modified: `backend/app/topology/graph.py`,
 `backend/app/topology/models.py`, `backend/app/main.py`,
-`backend/app/correlation/store.py`, `topology/README.md`, and root `README.md`.
+`backend/app/correlation/store.py`, `docs/guides/topology-engine.md`, and root `README.md`.
 The incident detail query now includes the link ID of an anomaly's referenced
 metric, if any; collection and correlation logic are unchanged. The original
 `Instruction/` files and pre-existing `.gitignore` edit were left untouched.
