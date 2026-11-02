@@ -196,6 +196,8 @@ After starting the lab, open **Evidence** and select **Capture live snapshot** t
 
 For a controlled failure demonstration, enable fault injection only in the local Ubuntu lab, open **Fault Lab**, and choose from the validated live interfaces or links. The dashboard exposes bounded parameters, one active fault, explicit recovery, and post-fault evidence capture; it does not accept arbitrary network commands or external targets.
 
+When PostgreSQL is reachable and the canonical topology is mapped, set `NETRCA_PIPELINE_WRITES_ENABLED=true` on the local Ubuntu backend and use **Detection Lab** to explicitly store a live snapshot or bounded probe. Select supported stored metrics to run deterministic detection with `persist: false`; no collection or anomaly write occurs automatically.
+
 ## Standard local setup
 
 ### 1. Backend

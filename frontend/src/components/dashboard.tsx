@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  correlateEvidence, generateIncidentExplanation, getApiHealth, getIncident, getIncidentImpact, getIncidentRca,
+  collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, generateIncidentExplanation,
+  getApiHealth, getIncident, getIncidentImpact, getIncidentRca,
   getFaults, getFaultTypes, getIncidentTopologyContext, getMonitoring, getNetworkStatus, getPage, getTopology, getTopologyGraph,
   injectFault, probeNetwork, recoverFault, resetFaults, runIncidentImpact, runIncidentRca, startNetwork, stopNetwork, resetNetwork,
-  testNetworkConnectivity, type Connectivity, type EvidenceRecord, type FaultRecord, type FaultRequest, type FaultType,
+  testNetworkConnectivity, type Connectivity, type DetectionRun, type EvidenceCollectionResult, type EvidenceRecord,
+  type FaultRecord, type FaultRequest, type FaultType,
   type GraphSource, type GraphSummary, type Incident, type IncidentDetail, type IncidentTopologyContext, type Monitoring,
   type NetworkStatus, type Page, type ProbeReading, type Topology,
 } from "@/lib/api";
@@ -15,9 +17,10 @@ import { TopologyEvidence } from "@/components/topology-evidence";
 import { NetworkLabControls } from "@/components/network-lab-controls";
 import { LiveEvidenceCapture } from "@/components/live-evidence-capture";
 import { FaultLab } from "@/components/fault-lab";
+import { DetectionLab } from "@/components/detection-lab";
 import { presentationModeEnabled } from "@/lib/presentation-demo";
 
-type Section = "Overview" | "Topology" | "Evidence" | "Fault Lab" | "Anomalies" | "Incidents" | "Demo Brief";
+type Section = "Overview" | "Topology" | "Evidence" | "Fault Lab" | "Detection Lab" | "Anomalies" | "Incidents" | "Demo Brief";
 type ViewData = {
   api: boolean;
   network?: NetworkStatus;
@@ -38,7 +41,7 @@ type IncidentAnalysis = {
 };
 type PageResource = "metrics" | "logs" | "events" | "anomalies" | "incidents";
 
-const sections: Section[] = ["Overview", "Topology", "Evidence", "Fault Lab", "Anomalies", "Incidents", "Demo Brief"];
+const sections: Section[] = ["Overview", "Topology", "Evidence", "Fault Lab", "Detection Lab", "Anomalies", "Incidents", "Demo Brief"];
 const presentationDemo = presentationModeEnabled();
 
 function message(error: unknown) {
@@ -107,10 +110,15 @@ export function Dashboard() {
   const [faultRecords, setFaultRecords] = useState<FaultRecord[]>([]);
   const [faultAction, setFaultAction] = useState<"refresh" | "inject" | "recover" | "reset">();
   const [faultError, setFaultError] = useState<string>();
+  const [detectionAction, setDetectionAction] = useState<"collect" | "probe" | "detect">();
+  const [detectionError, setDetectionError] = useState<string>();
+  const [collectionResult, setCollectionResult] = useState<EvidenceCollectionResult>();
+  const [detectionResult, setDetectionResult] = useState<DetectionRun>();
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const networkControllerRef = useRef<AbortController | undefined>(undefined);
   const evidenceControllerRef = useRef<AbortController | undefined>(undefined);
   const faultControllerRef = useRef<AbortController | undefined>(undefined);
+  const detectionControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentTopologyControllerRef = useRef<AbortController | undefined>(undefined);
   const selectedIncidentIdRef = useRef<string | undefined>(undefined);
@@ -228,6 +236,7 @@ export function Dashboard() {
       networkControllerRef.current?.abort();
       evidenceControllerRef.current?.abort();
       faultControllerRef.current?.abort();
+      detectionControllerRef.current?.abort();
       incidentControllerRef.current?.abort();
       incidentTopologyControllerRef.current?.abort();
       Object.values(pageControllers.current).forEach((controller) => controller?.abort());
@@ -344,6 +353,46 @@ export function Dashboard() {
       if (faultControllerRef.current === controller) {
         faultControllerRef.current = undefined;
         setFaultAction(undefined);
+      }
+    }
+  }
+
+  async function runEvidenceCollection(action: "collect" | "probe", request: (signal: AbortSignal) => Promise<{ data: EvidenceCollectionResult }>) {
+    detectionControllerRef.current?.abort();
+    const controller = new AbortController();
+    detectionControllerRef.current = controller;
+    setDetectionAction(action);
+    setDetectionError(undefined);
+    try {
+      const result = await request(controller.signal);
+      setCollectionResult(result.data);
+      await refresh();
+    } catch (error) {
+      if (!controller.signal.aborted) setDetectionError(message(error));
+    } finally {
+      if (detectionControllerRef.current === controller) {
+        detectionControllerRef.current = undefined;
+        setDetectionAction(undefined);
+      }
+    }
+  }
+
+  async function runDetection(metricIds: string[]) {
+    detectionControllerRef.current?.abort();
+    const controller = new AbortController();
+    detectionControllerRef.current = controller;
+    setDetectionAction("detect");
+    setDetectionError(undefined);
+    setDetectionResult(undefined);
+    try {
+      const result = await detectStoredMetrics(metricIds, controller.signal);
+      setDetectionResult(result.data);
+    } catch (error) {
+      if (!controller.signal.aborted) setDetectionError(message(error));
+    } finally {
+      if (detectionControllerRef.current === controller) {
+        detectionControllerRef.current = undefined;
+        setDetectionAction(undefined);
       }
     }
   }
@@ -543,6 +592,8 @@ export function Dashboard() {
         </div>}
 
         {section === "Fault Lab" && <FaultLab snapshot={data.monitoring} records={faultRecords} types={faultTypes} action={faultAction} error={faultError} networkRunning={data.network?.state === "RUNNING"} presentationMode={presentationDemo} onRefresh={() => void refreshFaultLab()} onInject={(value: FaultRequest) => void runFaultAction("inject", (signal) => injectFault(value, signal))} onRecover={(id) => void runFaultAction("recover", (signal) => recoverFault(id, signal))} onReset={() => void runFaultAction("reset", (signal) => resetFaults(signal))} onOpenEvidence={() => { setSection("Evidence"); void captureLiveEvidence(); }} />}
+
+        {section === "Detection Lab" && <DetectionLab snapshot={data.monitoring} metrics={metricRecords} collection={collectionResult} detection={detectionResult} action={detectionAction} error={detectionError} networkRunning={data.network?.state === "RUNNING"} presentationMode={presentationDemo} onCollect={() => void runEvidenceCollection("collect", (signal) => collectEvidenceSnapshot(signal))} onProbe={(source, destination) => void runEvidenceCollection("probe", (signal) => collectEvidenceProbe(source, destination, signal))} onDetect={(metricIds) => void runDetection(metricIds)} onRefresh={() => void refresh()} onOpenAnomalies={() => setSection("Anomalies")} />}
 
         {section === "Anomalies" && <section className="panel dashboard-content"><PanelHeading eyebrow="PHASE 8" title="Detected anomalies" /><State loading={loading} error={errors.anomalies} empty={!anomalyRecords.length}><RecordTable records={anomalyRecords} /><PageControls page={data.anomalies?.pagination} loading={pageLoading.anomalies} onPage={(direction) => void changePage("anomalies", direction)} /></State></section>}
 

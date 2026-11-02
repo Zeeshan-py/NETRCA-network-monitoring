@@ -110,6 +110,34 @@ export type FaultRecord = {
   error_code?: string | null;
   storage_status: "SYNCED" | "UNMAPPED" | "UNAVAILABLE";
 };
+export type EvidenceCollectionResult = {
+  observed_at: string;
+  metrics: number;
+  events: number;
+  duplicates: number;
+  unmapped_links?: number;
+  probe_status?: string;
+};
+export type DetectionResult = {
+  metric_id?: string | null;
+  observation_key: string;
+  device_id?: string | null;
+  link_id?: string | null;
+  metric_type: string;
+  value: number | string;
+  unit: string;
+  observed_at: string;
+  status: "NORMAL" | "ANOMALY" | "INSUFFICIENT_DATA";
+  method: "THRESHOLD" | "BASELINE" | "ISOLATION_FOREST" | "NONE";
+  reason: string;
+  severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null;
+  score?: number | null;
+  score_kind?: string | null;
+  support: Record<string, unknown>;
+  baseline_samples: number;
+  persistence: "NOT_REQUESTED" | "PERSISTED" | "EXISTING" | "UNAVAILABLE" | "NOT_ELIGIBLE";
+};
+export type DetectionRun = { items: DetectionResult[]; anomalies_detected: number; insufficient_data: number; persisted: number };
 export type Page<T> = { data: T[]; pagination: { page: number; limit: number; total: number; pages: number } };
 export type EvidenceRecord = Record<string, unknown> & { id: string; timestamp?: string; detected_at?: string; severity?: string; event_type?: string; metric_type?: string; message?: string; name?: string; status?: string };
 export type Incident = { id: string; title: string; description?: string | null; severity: string; status: string; start_time: string; end_time?: string | null };
@@ -173,6 +201,10 @@ export async function apiRequest<T>(path: string, options: { signal?: AbortSigna
       LOCAL_CONTROL_REQUIRED: "This operation requires the local-control header.",
       LOCAL_ONLY: "This operation is available only from the local development host.",
       PIPELINE_WRITES_DISABLED: "Evidence collection is disabled by the backend configuration.",
+      ANOMALY_WRITES_DISABLED: "Anomaly persistence is disabled by the backend configuration.",
+      METRIC_NOT_FOUND: "A selected stored metric is no longer available.",
+      STORED_METRIC_INVALID: "A selected metric is not valid Phase 6 evidence.",
+      DUPLICATE_OBSERVATION: "Conflicting observations share the same evidence key.",
       CORRELATION_WRITES_DISABLED: "Incident correlation is disabled by the backend configuration.",
       RCA_WRITES_DISABLED: "RCA runs are disabled by the backend configuration.",
       IMPACT_WRITES_DISABLED: "Impact analysis runs are disabled by the backend configuration.",
@@ -296,6 +328,21 @@ export async function recoverFault(id: string, signal?: AbortSignal) {
 }
 export async function resetFaults(signal?: AbortSignal) {
   return apiRequest<Envelope<FaultRecord | []>>("/faults/reset", { method: "POST", localControl: true, signal });
+}
+export async function collectEvidenceSnapshot(signal?: AbortSignal) {
+  return apiRequest<Envelope<EvidenceCollectionResult>>("/pipeline/collect", { method: "POST", localControl: true, signal });
+}
+export async function collectEvidenceProbe(source: string, destination: string, signal?: AbortSignal) {
+  return apiRequest<Envelope<EvidenceCollectionResult>>("/pipeline/probe", {
+    method: "POST", localControl: true, signal,
+    body: { source, destination, count: 2, timeout_seconds: 2 },
+  });
+}
+export async function detectStoredMetrics(metricIds: string[], signal?: AbortSignal) {
+  return apiRequest<Envelope<DetectionRun>>("/anomalies/detect", {
+    method: "POST", localControl: true, signal,
+    body: { metric_ids: metricIds.slice(0, 20), persist: false },
+  });
 }
 
 export async function getPage<T>(resource: "metrics" | "logs" | "events" | "anomalies" | "incidents", page = 1, limit = 20, signal?: AbortSignal, filter?: { deviceId?: string; linkId?: string }): Promise<Page<T>> {

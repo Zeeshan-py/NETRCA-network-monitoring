@@ -98,3 +98,17 @@ PostgreSQL and Ubuntu WSL Mininet test uses
 `NETRCA_RUN_PIPELINE_LAB_TESTS=1`. Both database tests roll back their rows.
 Existing real Linux Mininet tests use `NETRCA_RUN_MININET_TESTS=1` inside
 Ubuntu. See the [Phase 6 report](../reports/PHASE6_REPORT.md) for exact results and limits.
+
+## Semester dashboard demonstration
+
+The dashboard's **Detection Lab** exposes only the two validated collector
+operations: the current canonical snapshot and a bounded probe between known
+live hosts. These buttons remain disabled until the lab is running and the
+backend must still have `NETRCA_PIPELINE_WRITES_ENABLED=true`. Collection is
+never started automatically.
+
+After a successful collection, refresh stored evidence and select supported
+metrics from the current page for deterministic detection. The dashboard does
+not create topology rows, accept arbitrary observations, or hide database
+failures. If the database or topology mapping is unavailable, the displayed
+error is the result; no synthetic stored record is substituted.

@@ -22,3 +22,12 @@ At most 20 stored IDs or 20 inline observations may be analyzed per request. Inl
 Persisted anomalies use the existing `public.anomalies` table, referencing their source metric. Normal and insufficient results are not inserted. Writes lock the source metric row and reuse an existing anomaly with the same metric, method and configuration version, so repeated detection does not create another row through this service. Each result reports `persistence`: `PERSISTED`, `EXISTING`, `UNAVAILABLE`, `NOT_ELIGIBLE`, or `NOT_REQUESTED`. A write failure never appears as successful persistence. `GET /api/v1/anomalies`, `GET /api/v1/anomalies/{id}`, and `GET /api/v1/anomalies/statistics` read stored records with bounded pagination and safe 503 errors when the database is unavailable.
 
 Settings in `backend/.env.example` configure all thresholds, observation age, history window/count, baseline minimum, and Isolation Forest minimum/contamination. Test on Windows with `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` from the repository root. In Ubuntu WSL2, set `NETRCA_RUN_MININET_TESTS=1 NETRCA_RUN_FAULT_TESTS=1` and run the backend suite with the Linux venv as root. The PostgreSQL rollback test requires separate `NETRCA_RUN_ANOMALY_DB_TESTS=1` and a reachable configured database. Synthetic unit fixtures are not real network observations. Anomaly detection does not create Phase 9 correlated events, RCA findings, or automatic faults.
+
+## Semester dashboard demonstration
+
+Open **Detection Lab** after stored Phase 6 metrics are available. The selector
+includes only metrics supported by the detector and submits at most 20 stored
+IDs with `persist: false`. Results show the authoritative method, reason,
+severity, baseline sample count, and score interpretation. A score is displayed
+as method-specific strength, never as probability or confidence. Use the
+separate **Anomalies** page only to inspect previously persisted history.

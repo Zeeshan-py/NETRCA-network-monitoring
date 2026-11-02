@@ -47,6 +47,13 @@ evidence. Recover the active fault, capture evidence again to show restoration,
 then stop the lab. State that an injected lab condition is not automatically an
 anomaly or RCA conclusion.
 
+If PostgreSQL is reachable and the canonical topology is mapped, open
+**Detection Lab**, explicitly store one snapshot or bounded probe, select a
+supported stored metric, and run deterministic detection. Explain the rule or
+baseline evidence and state that its score is not a probability. If storage is
+unavailable, show the honest error and use the synthetic presentation as the
+fallback instead of claiming persistence.
+
 Keep the synthetic launcher available as the presentation fallback if Ubuntu,
 Open vSwitch, or Mininet is unavailable on the classroom machine.
 

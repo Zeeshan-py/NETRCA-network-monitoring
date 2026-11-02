@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
+import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -131,6 +131,26 @@ test("uses protected bounded fault lifecycle requests", async () => {
     fault_type: "PACKET_LOSS", device: "h1", interface: "h1-eth0", packet_loss_percent: 50,
     duration_seconds: 30, severity: "HIGH",
   });
+});
+
+test("uses explicit protected evidence collection and non-persisting detection requests", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await collectEvidenceSnapshot();
+  await collectEvidenceProbe("h1", "server1");
+  await detectStoredMetrics(["metric-1", "metric-2"]);
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    "http://localhost:8000/api/v1/pipeline/collect",
+    "http://localhost:8000/api/v1/pipeline/probe",
+    "http://localhost:8000/api/v1/anomalies/detect",
+  ]);
+  for (const [, request] of fetchMock.mock.calls) {
+    expect(request.method).toBe("POST");
+    expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  }
+  expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({ source: "h1", destination: "server1", count: 2, timeout_seconds: 2 });
+  expect(JSON.parse(String(fetchMock.mock.calls[2][1].body))).toEqual({ metric_ids: ["metric-1", "metric-2"], persist: false });
 });
 
 test("requests live and stored graph sources separately without mixing them", async () => {

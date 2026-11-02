@@ -11,6 +11,7 @@ This directory is the central index for NetRCA implementation, verification, and
 | Semester 3 | Network lifecycle and live visualization | [Semester Phase 3 report](SEMESTER_PHASE3_NETWORK_LIFECYCLE.md) |
 | Semester 4 | Evidence collection demonstration | [Semester Phase 4 report](SEMESTER_PHASE4_EVIDENCE_COLLECTION.md) |
 | Semester 5 | Controlled fault and observable failure | [Semester Phase 5 report](SEMESTER_PHASE5_CONTROLLED_FAULT.md) |
+| Semester 6 | Stored evidence and deterministic anomaly detection | [Semester Phase 6 report](SEMESTER_PHASE6_STORED_EVIDENCE_DETECTION.md) |
 
 ## Original implementation phases
 

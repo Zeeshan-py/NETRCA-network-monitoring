@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   getPage: vi.fn(), getIncident: vi.fn(), getIncidentRca: vi.fn(), getIncidentImpact: vi.fn(),
   getTopologyGraph: vi.fn(), getIncidentTopologyContext: vi.fn(),
   getFaultTypes: vi.fn(), getFaults: vi.fn(), injectFault: vi.fn(), recoverFault: vi.fn(), resetFaults: vi.fn(),
+  collectEvidenceSnapshot: vi.fn(), collectEvidenceProbe: vi.fn(), detectStoredMetrics: vi.fn(),
   runIncidentRca: vi.fn(), runIncidentImpact: vi.fn(), correlateEvidence: vi.fn(), generateIncidentExplanation: vi.fn(),
   startNetwork: vi.fn(), stopNetwork: vi.fn(), resetNetwork: vi.fn(), testNetworkConnectivity: vi.fn(), probeNetwork: vi.fn(),
 }));
@@ -87,6 +88,23 @@ test("injects a controlled fault using only targets from the live snapshot", asy
     fault_type: "PACKET_LOSS", device: "h1", interface: "h1-eth0", packet_loss_percent: 50,
     duration_seconds: 30, severity: "HIGH",
   }, expect.any(AbortSignal)));
+});
+
+test("stores an explicit snapshot and analyzes selected stored metrics without persistence", async () => {
+  healthyResponses();
+  const metric = { id: "metric-1", metric_type: "PACKET_LOSS", value: 100, unit: "%", timestamp: "2026-11-02T10:00:00Z", source: "mininet_probe" };
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "metrics" ? [metric] : [], pagination: { page: 1, limit: 20, total: resource === "metrics" ? 1 : 0, pages: resource === "metrics" ? 1 : 0 } }));
+  api.collectEvidenceSnapshot.mockResolvedValue({ data: { observed_at: "2026-11-02T10:01:00Z", metrics: 10, events: 1, duplicates: 0 } });
+  api.detectStoredMetrics.mockResolvedValue({ data: { anomalies_detected: 1, insufficient_data: 0, persisted: 0, items: [{ metric_id: "metric-1", observation_key: "probe:key", metric_type: "PACKET_LOSS", value: 100, unit: "%", observed_at: "2026-11-02T10:00:00Z", status: "ANOMALY", method: "THRESHOLD", reason: "Packet loss exceeds the configured threshold", severity: "CRITICAL", score: 1, score_kind: "THRESHOLD_STRENGTH", support: {}, baseline_samples: 0, persistence: "NOT_REQUESTED" }] } });
+  render(<Home />);
+  fireEvent.click(await screen.findByRole("button", { name: "Detection Lab" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Store current snapshot" }));
+  await waitFor(() => expect(api.collectEvidenceSnapshot).toHaveBeenCalledWith(expect.any(AbortSignal)));
+  expect(await screen.findByText("Collection completed")).toBeInTheDocument();
+  fireEvent.click(screen.getByLabelText("Select PACKET_LOSS metric metric-1"));
+  fireEvent.click(screen.getByRole("button", { name: "Analyze selected metrics" }));
+  await waitFor(() => expect(api.detectStoredMetrics).toHaveBeenCalledWith(["metric-1"], expect.any(AbortSignal)));
+  expect(await screen.findByText("Packet loss exceeds the configured threshold")).toBeInTheDocument();
 });
 
 test("surfaces backend failures without replacing them with demonstration data", async () => {
