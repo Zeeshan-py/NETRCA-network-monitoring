@@ -6,6 +6,10 @@ or AI in this module. Simulation is **disabled by default**. A Windows Python
 process can report the missing environment and run offline tests; it cannot
 create the Linux network.
 
+The topology is now sourced from the validated shared contract at
+`scenarios/netrca_lab_v1.json`. The Mininet builder and presentation fixture
+consume that same definition; see the [network scenario guide](network-scenarios.md).
+
 ## Topology and behavior
 
 ```text

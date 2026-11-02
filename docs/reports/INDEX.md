@@ -2,6 +2,15 @@
 
 This directory is the central index for NetRCA implementation, verification, and audit reports. Reports are ordered by project phase so reviewers can follow the system from its database and network foundation through the dashboard and final demonstration.
 
+## Current semester completion
+
+| Phase | Area | Report |
+| --- | --- | --- |
+| Semester 1 | Scope freeze and verified baseline | [Semester Phase 1 baseline](SEMESTER_PHASE1_BASELINE.md) |
+| Semester 2 | Unified network scenario model | [Semester Phase 2 report](SEMESTER_PHASE2_UNIFIED_SCENARIO.md) |
+
+## Original implementation phases
+
 | Phase | Area | Report |
 | --- | --- | --- |
 | 2 | Database foundation and Supabase integration | [Phase 2 report](PHASE2_REPORT.md) |

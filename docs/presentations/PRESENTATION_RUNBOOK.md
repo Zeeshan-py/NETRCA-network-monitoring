@@ -16,6 +16,11 @@ The script starts the FastAPI health endpoint on `127.0.0.1:8000`, starts Next.j
 on `127.0.0.1:3000`, waits for both services, and opens the dashboard. Runtime
 logs are written under `%TEMP%\netrca-presentation`.
 
+If the installed Next.js version exits once to display its known dependency-security
+reminder, the launcher retries exactly once and verifies that the second process
+remains alive. The retry keeps the classroom demo reliable; it is not a substitute
+for a separately reviewed dependency upgrade.
+
 Stop both local listeners with:
 
 ```powershell
@@ -30,10 +35,10 @@ unknown process.
 
 1. Open **Demo Brief** and frame the product: deterministic evidence first,
    explainable analysis second.
-2. Open **Overview** and describe the WAN outage, degraded devices, packet-loss
+2. Open **Overview** and describe the inter-switch outage, degraded devices, packet-loss
    signal, and active incident.
 3. Open **Topology**, keep **Stored topology** selected, and show the failed
-   uplink plus the intentionally disconnected backup host.
+   `s1`–`s2` link in the same five-node topology used by the real Mininet lab.
 4. Open **Evidence** and connect metric, log, and event timestamps through stable
    device and link IDs.
 5. Open **Incidents**, select the checkout outage, and show correlated evidence,

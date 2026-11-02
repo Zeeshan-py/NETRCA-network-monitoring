@@ -164,7 +164,7 @@ cd ..
 .\scripts\start-presentation.ps1
 ```
 
-Open `http://127.0.0.1:3000` if the browser does not open automatically. The interface is clearly labeled **Synthetic demo** and includes a sample WAN outage, stored topology, metrics, logs, events, anomalies, an incident, an RCA candidate, and a potential impact chain.
+Open `http://127.0.0.1:3000` if the browser does not open automatically. The interface is clearly labeled **Synthetic demo** and uses the canonical five-node Mininet topology with synthetic inter-switch failure evidence, metrics, logs, events, anomalies, an incident, an RCA candidate, and a potential impact chain.
 
 ```powershell
 .\scripts\stop-presentation.ps1
@@ -253,7 +253,7 @@ All application routes are under `/api/v1`.
 | Area | Representative routes |
 | --- | --- |
 | Health | `GET /health` |
-| Network | `GET /network/status`, `POST /network/start`, `POST /network/stop` |
+| Network | `GET /network/status`, `GET /network/scenario`, `POST /network/start`, `POST /network/stop` |
 | Topology | `GET /topology`, `GET /topology/analysis`, `GET /topology/path` |
 | Monitoring | `GET /network/monitoring`, `POST /network/monitoring/probe` |
 | Evidence | `GET/POST /metrics`, `GET/POST /logs`, `GET/POST /events` |
@@ -300,6 +300,7 @@ backend/              FastAPI application, analysis services, repositories, and 
 frontend/             Next.js dashboard, API client, visualizations, and tests
 database/             Database setup, validation, rollback, and fixture utilities
 supabase/             Versioned PostgreSQL migrations and Supabase configuration
+scenarios/            Validated network definitions shared by Mininet and the dashboard
 docs/
   guides/             Subsystem setup and implementation guides
   reports/            Phase implementation, verification, and audit reports

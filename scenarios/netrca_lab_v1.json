@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "name": "netrca_lab_v1",
+  "description": "Canonical five-node NetRCA semester laboratory topology.",
+  "nodes": [
+    {
+      "id": "a192a6dd-e451-5212-8c1f-04670fc0984d",
+      "key": "s1",
+      "name": "s1",
+      "device_type": "SWITCH",
+      "ip_address": null
+    },
+    {
+      "id": "f9521724-9868-5342-9f1a-28bb4a2d136a",
+      "key": "s2",
+      "name": "s2",
+      "device_type": "SWITCH",
+      "ip_address": null
+    },
+    {
+      "id": "ea4f6e5a-02fb-530f-9640-b54e390678f7",
+      "key": "h1",
+      "name": "h1",
+      "device_type": "HOST",
+      "ip_address": "10.77.0.11/24"
+    },
+    {
+      "id": "22bab3db-a2ee-5a17-b367-0ab0fd5663de",
+      "key": "h2",
+      "name": "h2",
+      "device_type": "HOST",
+      "ip_address": "10.77.0.12/24"
+    },
+    {
+      "id": "d9025911-4607-516e-8cee-56f9cfdb4a9f",
+      "key": "server1",
+      "name": "server1",
+      "device_type": "SERVER",
+      "ip_address": "10.77.0.20/24"
+    }
+  ],
+  "links": [
+    {
+      "id": "f337798e-5ed6-5c78-9c2d-755a844c5652",
+      "key": "h1--s1",
+      "source": "h1",
+      "destination": "s1",
+      "interface_source": "h1-eth0",
+      "interface_destination": "s1-eth1"
+    },
+    {
+      "id": "64dc7917-27d9-5414-bb6d-9dfc823bc006",
+      "key": "s1--s2",
+      "source": "s1",
+      "destination": "s2",
+      "interface_source": "s1-eth2",
+      "interface_destination": "s2-eth1"
+    },
+    {
+      "id": "d3ca7822-f02d-5b59-b4ba-12ec2ac02088",
+      "key": "s2--h2",
+      "source": "s2",
+      "destination": "h2",
+      "interface_source": "s2-eth2",
+      "interface_destination": "h2-eth0"
+    },
+    {
+      "id": "0c7caa6e-6aa5-5a1c-84f5-028c48711d6b",
+      "key": "s2--server1",
+      "source": "s2",
+      "destination": "server1",
+      "interface_source": "s2-eth3",
+      "interface_destination": "server1-eth0"
+    }
+  ]
+}

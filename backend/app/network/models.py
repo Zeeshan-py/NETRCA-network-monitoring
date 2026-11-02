@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.network.scenario import NetworkScenario
+
 
 class EnvironmentReport(BaseModel):
     available: bool
@@ -59,6 +61,11 @@ class StatusResponse(BaseModel):
 class TopologyResponse(BaseModel):
     success: Literal[True] = True
     data: TopologyView
+
+
+class ScenarioResponse(BaseModel):
+    success: Literal[True] = True
+    data: NetworkScenario
 
 
 class ConnectivityResponse(BaseModel):

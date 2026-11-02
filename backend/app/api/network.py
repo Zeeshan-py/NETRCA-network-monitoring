@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 from app.core.config import Settings
 from app.network.errors import NetworkError
 from app.network.manager import NetworkManager
-from app.network.models import ConnectivityResponse, OperationResponse, StatusResponse, TopologyResponse
+from app.network.models import ConnectivityResponse, OperationResponse, ScenarioResponse, StatusResponse, TopologyResponse
+from app.network.scenario import DEFAULT_SCENARIO
 from app.db.connection import DatabaseUnavailable
 
 router = APIRouter(tags=["network"])
@@ -83,6 +84,15 @@ def network_status(request: Request):
     if denied:
         return denied
     return StatusResponse(data=_manager(request).get_status())
+
+
+@router.get("/network/scenario", response_model=ScenarioResponse)
+def network_scenario(request: Request):
+    """Return the validated canonical contract without starting Mininet."""
+    denied = _local_only(request, control=False)
+    if denied:
+        return denied
+    return ScenarioResponse(data=DEFAULT_SCENARIO)
 
 
 @router.get("/topology", response_model=TopologyResponse)

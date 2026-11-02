@@ -1,5 +1,7 @@
-"""Fixed, loop-free Mininet lab topology. No router is implied."""
+"""Build the fixed Mininet lab from the shared validated scenario contract."""
 from dataclasses import dataclass
+
+from app.network.scenario import DEFAULT_SCENARIO, NetworkScenario
 
 
 @dataclass(frozen=True)
@@ -15,47 +17,34 @@ class LinkSpec:
     destination: str
 
 
-TOPOLOGY_NAME = "netrca_lab_v1"
-NODES = (
-    NodeSpec("s1", "SWITCH"),
-    NodeSpec("s2", "SWITCH"),
-    NodeSpec("h1", "HOST", "10.77.0.11/24"),
-    NodeSpec("h2", "HOST", "10.77.0.12/24"),
-    NodeSpec("server1", "SERVER", "10.77.0.20/24"),
-)
-LINKS = (
-    LinkSpec("h1", "s1"),
-    LinkSpec("s1", "s2"),
-    LinkSpec("s2", "h2"),
-    LinkSpec("s2", "server1"),
-)
-HOST_NAMES = ("h1", "h2", "server1")
+TOPOLOGY_NAME = DEFAULT_SCENARIO.name
+NODES = tuple(NodeSpec(node.key, node.device_type, node.ip_address) for node in DEFAULT_SCENARIO.nodes)
+LINKS = tuple(LinkSpec(link.source, link.destination) for link in DEFAULT_SCENARIO.links)
+HOST_NAMES = DEFAULT_SCENARIO.host_names
 
 
 def validate_topology() -> None:
-    names = {node.name for node in NODES}
-    if len(names) != len(NODES) or len(set(HOST_NAMES)) != len(HOST_NAMES):
-        raise ValueError("Topology node names must be unique")
-    if any(link.source not in names or link.destination not in names or link.source == link.destination for link in LINKS):
-        raise ValueError("Topology links must join distinct known nodes")
-    if any(name not in names or next(n for n in NODES if n.name == name).device_type not in {"HOST", "SERVER"} for name in HOST_NAMES):
-        raise ValueError("Connectivity hosts must exist and be hosts")
+    # Loading the canonical scenario performs the full validation. Keep this
+    # compatibility function for existing callers and explicit smoke checks.
+    if len(DEFAULT_SCENARIO.components()) != 1:
+        raise ValueError("The default connectivity lab must be connected")
 
 
-def build_mininet_topology():
+def build_mininet_topology(scenario: NetworkScenario = DEFAULT_SCENARIO):
     """Import Mininet only when a supported Linux environment starts a network."""
     from mininet.topo import Topo
 
-    validate_topology()
+    if scenario is DEFAULT_SCENARIO:
+        validate_topology()
 
     class NetRCATopo(Topo):
         def build(self):
-            for node in NODES:
+            for node in scenario.nodes:
                 if node.device_type == "SWITCH":
-                    self.addSwitch(node.name)
+                    self.addSwitch(node.key)
                 else:
-                    self.addHost(node.name, ip=node.ip)
-            for link in LINKS:
+                    self.addHost(node.key, ip=node.ip_address)
+            for link in scenario.links:
                 self.addLink(link.source, link.destination)
 
     return NetRCATopo()

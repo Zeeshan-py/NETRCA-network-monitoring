@@ -1,15 +1,12 @@
 """Topology validation and relationships. Links are physical, undirected edges."""
 from collections.abc import Iterable
-from uuid import UUID, uuid5
+from uuid import uuid5
 
 import networkx as nx
 
 from app.network.models import TopologyView
+from app.network.scenario import RUNTIME_NAMESPACE
 from app.topology.models import Device, Link, TopologyValidation
-
-
-# Runtime IDs are deterministic graph IDs, not claims of persisted database rows.
-RUNTIME_NAMESPACE = UUID("09dfd2df-838b-4dd7-91fb-39b1970aa86f")
 
 
 class TopologyGraph:

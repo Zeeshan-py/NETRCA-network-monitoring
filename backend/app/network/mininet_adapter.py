@@ -4,7 +4,8 @@ from pathlib import Path
 
 from app.network.errors import NetworkAlreadyRunning, NetworkNotRunning, ShutdownFailure, StartupFailure
 from app.network.models import ConnectivityView, DeviceView, LinkView, TopologyView
-from app.network.topology import HOST_NAMES, LINKS, NODES, TOPOLOGY_NAME, build_mininet_topology
+from app.network.scenario import DEFAULT_SCENARIO
+from app.network.topology import build_mininet_topology
 from app.monitoring.models import MonitoringSnapshot, ProbeReading
 from app.monitoring.service import capture, probe
 from app.faults.adapter import apply as apply_fault_to_lab, restore as restore_fault_in_lab
@@ -55,10 +56,19 @@ class MininetAdapter:
             self._net.build()
             self._net.start()
             topology = self.topology()
-            expected_nodes = {node.name for node in NODES}
-            expected_links = {frozenset((edge.source, edge.destination)) for edge in LINKS}
+            expected_nodes = {node.key for node in DEFAULT_SCENARIO.nodes}
+            expected_links = {frozenset((edge.source, edge.destination)) for edge in DEFAULT_SCENARIO.links}
             if {node.name for node in topology.nodes} != expected_nodes or {frozenset((edge.source, edge.destination)) for edge in topology.links} != expected_links or any(edge.status != "UP" for edge in topology.links):
                 raise StartupFailure("Network did not create the expected live topology")
+            expected_interfaces = {
+                edge.key: (edge.interface_source, edge.interface_destination)
+                for edge in DEFAULT_SCENARIO.links
+            }
+            if any(
+                expected_interfaces.get(edge.id) != (edge.interface_source, edge.interface_destination)
+                for edge in topology.links
+            ):
+                raise StartupFailure("Network interfaces did not match the canonical scenario")
             if not self.test_connectivity(timeout=2).connected:
                 raise StartupFailure("Simulated hosts could not communicate")
             return topology
@@ -85,9 +95,10 @@ class MininetAdapter:
     def topology(self) -> TopologyView:
         if self._net is None:
             raise NetworkNotRunning("Network is not running")
-        kinds = {node.name: node.device_type for node in NODES}
+        kinds = {node.key: node.device_type for node in DEFAULT_SCENARIO.nodes}
+        hosts = set(DEFAULT_SCENARIO.host_names)
         nodes = [
-            DeviceView(id=node.name, name=node.name, device_type=kinds[node.name], ip_address=node.IP() or None if node.name in HOST_NAMES else None)
+            DeviceView(id=node.name, name=node.name, device_type=kinds[node.name], ip_address=node.IP() or None if node.name in hosts else None)
             for node in [*self._net.switches, *self._net.hosts]
         ]
         links = [
@@ -100,16 +111,16 @@ class MininetAdapter:
                 interface_destination=link.intf2.name,
             ) for link in self._net.links
         ]
-        return TopologyView(topology_name=TOPOLOGY_NAME, nodes=nodes, links=links)
+        return TopologyView(topology_name=DEFAULT_SCENARIO.name, nodes=nodes, links=links)
 
     def test_connectivity(self, timeout: int) -> ConnectivityView:
         if self._net is None:
             raise NetworkNotRunning("Network is not running")
         actual_hosts = {host.name for host in self._net.hosts}
-        if not set(HOST_NAMES) <= actual_hosts:
+        if not set(DEFAULT_SCENARIO.host_names) <= actual_hosts:
             raise StartupFailure("Expected hosts are missing")
         loss = float(self._net.pingAll(timeout=timeout))
-        return ConnectivityView(hosts=list(HOST_NAMES), packet_loss_percent=loss, connected=loss == 0)
+        return ConnectivityView(hosts=list(DEFAULT_SCENARIO.host_names), packet_loss_percent=loss, connected=loss == 0)
 
     def monitor_snapshot(self) -> MonitoringSnapshot:
         if self._net is None:

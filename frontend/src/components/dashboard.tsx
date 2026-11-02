@@ -303,7 +303,7 @@ export function Dashboard() {
         <section className="hero compact-hero">
           <p className="eyebrow accent">{presentationDemo ? "SYNTHETIC SCENARIO · NO CUSTOMER DATA" : "LIVE DATA · LOCAL API"}</p>
           <h1>Network <em>operations.</em></h1>
-          <p className="hero-description">{presentationDemo ? "Trace a controlled WAN outage from topology and telemetry through correlation, deterministic root-cause analysis, and an evidence-linked impact chain." : "Review current simulator state and stored evidence, then investigate incidents using the deterministic analysis already enabled by your backend configuration."}</p>
+          <p className="hero-description">{presentationDemo ? "Trace a controlled inter-switch failure in the canonical Mininet topology through correlation, deterministic root-cause analysis, and an evidence-linked impact chain." : "Review current simulator state and stored evidence, then investigate incidents using the deterministic analysis already enabled by your backend configuration."}</p>
         </section>
 
         {presentationDemo && <aside className="demo-banner" aria-label="Presentation data notice"><strong>Presentation scenario</strong><span>All populated records are synthetic and remain in the browser. Supabase is not seeded, Mininet is not started, and the explanation action does not call Gemini.</span></aside>}
@@ -337,7 +337,7 @@ export function Dashboard() {
             <div className="situation-grid">
               <article><span>Degraded devices</span><strong>{degradedDevices}</strong><small>Directly reported by stored topology</small></article>
               <article><span>Open incidents</span><strong>{openIncidents}</strong><small>Not resolved or closed</small></article>
-              <article><span>Leading signal</span><strong>{anomalyRecords.length ? "100% loss" : "No signal"}</strong><small>{anomalyRecords.length ? "WAN uplink threshold breach" : "Awaiting anomaly evidence"}</small></article>
+              <article><span>Leading signal</span><strong>{anomalyRecords.length ? "100% loss" : "No signal"}</strong><small>{anomalyRecords.length ? "s1–s2 link threshold breach" : "Awaiting anomaly evidence"}</small></article>
               <article><span>Next action</span><button className="button primary" disabled={!incidents[0]} onClick={() => { if (incidents[0]) { setSection("Incidents"); void loadIncident(incidents[0].id); } }}>Open investigation</button><small>Review evidence before remediation</small></article>
             </div>
           </section>

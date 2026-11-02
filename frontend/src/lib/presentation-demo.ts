@@ -1,4 +1,5 @@
 import type { Envelope, GraphSummary, IncidentDetail, IncidentTopologyContext, Monitoring, NetworkStatus, Topology } from "@/lib/api";
+import labScenario from "../../../scenarios/netrca_lab_v1.json";
 
 export class PresentationDemoError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) {
@@ -7,13 +8,22 @@ export class PresentationDemoError extends Error {
   }
 }
 
+function nodeId(key: string) {
+  const node = labScenario.nodes.find((item) => item.key === key);
+  if (!node) throw new Error(`Canonical scenario is missing node ${key}`);
+  return node.id;
+}
+
+function linkId(key: string) {
+  const link = labScenario.links.find((item) => item.key === key);
+  if (!link) throw new Error(`Canonical scenario is missing link ${key}`);
+  return link.id;
+}
+
 const IDs = {
-  router: "05d50c12-c3a0-55c0-877a-1f1491f84f94",
-  switch: "e91444e2-2c6f-59f4-9fc9-d41b662e7214",
-  app: "247fd2e3-fd24-5f3e-b798-babffc370f70",
-  isolated: "149e4c97-4e26-5ca0-9b92-8134f1f6400a",
-  uplink: "195b92f7-e9a1-533e-b923-ffb8a2e60888",
-  serverLink: "6fab58fa-4987-5c0f-8597-2dda64a3075f",
+  switch1: nodeId("s1"),
+  server: nodeId("server1"),
+  failedLink: linkId("s1--s2"),
   lossMetric: "eddfd1ad-5b9c-5fae-a7c6-7dd2f3ffacc9",
   failureEvent: "ef2317ce-2a9b-53bd-bb7f-dc7e1d8aa99e",
   timeoutEvent: "406bc67f-5e93-5d3b-a5a0-4e7398b889b6",
@@ -23,59 +33,67 @@ const IDs = {
 
 const observedAt = "2026-10-31T09:42:18Z";
 
-const nodes = [
-  { id: IDs.router, name: "DEMO-R1", device_type: "ROUTER", status: "DOWN", ip_address: "10.77.0.1" },
-  { id: IDs.switch, name: "DEMO-S1", device_type: "SWITCH", status: "WARNING", ip_address: null },
-  { id: IDs.app, name: "DEMO-App01", device_type: "SERVER", status: "WARNING", ip_address: "10.77.0.10" },
-  { id: IDs.isolated, name: "DEMO-Backup01", device_type: "HOST", status: "HEALTHY", ip_address: "10.77.0.99" },
-];
+const nodeStatus: Record<string, string> = { s1: "WARNING", s2: "WARNING", h1: "HEALTHY", h2: "WARNING", server1: "WARNING" };
+const nodes = labScenario.nodes.map((node) => ({
+  id: node.id,
+  name: node.name,
+  device_type: node.device_type,
+  status: nodeStatus[node.key] ?? "HEALTHY",
+  ip_address: node.ip_address,
+}));
 
-const links = [
-  { id: IDs.uplink, source: IDs.router, destination: IDs.switch, source_device_id: IDs.router, destination_device_id: IDs.switch, status: "DOWN", interface_source: "r1-eth0", interface_destination: "s1-eth1" },
-  { id: IDs.serverLink, source: IDs.switch, destination: IDs.app, source_device_id: IDs.switch, destination_device_id: IDs.app, status: "UP", interface_source: "s1-eth2", interface_destination: "app01-eth0" },
-];
+const links = labScenario.links.map((link) => ({
+  id: link.id,
+  source: nodeId(link.source),
+  destination: nodeId(link.destination),
+  source_device_id: nodeId(link.source),
+  destination_device_id: nodeId(link.destination),
+  status: link.key === "s1--s2" ? "DOWN" : "UP",
+  interface_source: link.interface_source,
+  interface_destination: link.interface_destination,
+}));
 
 const topology: Topology = {
-  topology_name: "netrca_presentation_scenario",
+  topology_name: labScenario.name,
   nodes,
   links,
-  components: [[IDs.router, IDs.switch, IDs.app], [IDs.isolated]],
+  components: [labScenario.nodes.map((node) => node.id)],
 };
 
 const graph: GraphSummary = {
   directed: false,
   semantics: "PHYSICAL_TOPOLOGY",
-  connected: false,
+  connected: true,
   components: topology.components ?? [],
   devices: nodes.map(({ id, name, device_type, status }) => ({ id, name, device_type, status })),
   links: links.map(({ id, source_device_id, destination_device_id, status }) => ({ id, source_device_id, destination_device_id, status })),
 };
 
 const metrics = [
-  { id: IDs.lossMetric, device_id: IDs.router, link_id: IDs.uplink, metric_type: "PACKET_LOSS", value: 100, unit: "%", threshold: 5, timestamp: "2026-10-31T09:42:01Z", metadata: { demo: true } },
-  { id: "9b0cdbbc-ec26-542a-bb43-1a9ca7889663", device_id: IDs.router, link_id: IDs.uplink, metric_type: "LATENCY", value: 248, unit: "ms", threshold: 100, timestamp: "2026-10-31T09:41:58Z", metadata: { demo: true } },
-  { id: "7d8b0348-6f63-5daa-a47e-89d85f4520c0", device_id: IDs.app, metric_type: "AVAILABILITY", value: 92.4, unit: "%", threshold: 99, timestamp: "2026-10-31T09:42:06Z", metadata: { demo: true } },
+  { id: IDs.lossMetric, device_id: IDs.switch1, link_id: IDs.failedLink, metric_type: "PACKET_LOSS", value: 100, unit: "%", threshold: 5, timestamp: "2026-10-31T09:42:01Z", metadata: { demo: true } },
+  { id: "9b0cdbbc-ec26-542a-bb43-1a9ca7889663", device_id: IDs.switch1, link_id: IDs.failedLink, metric_type: "LATENCY", value: 248, unit: "ms", threshold: 100, timestamp: "2026-10-31T09:41:58Z", metadata: { demo: true } },
+  { id: "7d8b0348-6f63-5daa-a47e-89d85f4520c0", device_id: IDs.server, metric_type: "AVAILABILITY", value: 92.4, unit: "%", threshold: 99, timestamp: "2026-10-31T09:42:06Z", metadata: { demo: true } },
 ];
 
 const logs = [
-  { id: "a9bada2c-881e-5654-85a4-d82386d49384", device_id: IDs.router, severity: "ERROR", event_type: "INTERFACE_FAILURE", message: "DEMO: WAN uplink transitioned to DOWN.", source: "presentation-fixture", timestamp: "2026-10-31T09:42:00Z" },
-  { id: "9411f8a2-4ef6-57cf-9352-aa7746519051", device_id: IDs.app, severity: "WARNING", event_type: "HTTP_TIMEOUT", message: "DEMO: checkout API exceeded the service timeout.", source: "presentation-fixture", timestamp: "2026-10-31T09:42:05Z" },
+  { id: "a9bada2c-881e-5654-85a4-d82386d49384", device_id: IDs.switch1, severity: "ERROR", event_type: "INTERFACE_FAILURE", message: "DEMO: the s1-to-s2 inter-switch link transitioned to DOWN.", source: "presentation-fixture", timestamp: "2026-10-31T09:42:00Z" },
+  { id: "9411f8a2-4ef6-57cf-9352-aa7746519051", device_id: IDs.server, severity: "WARNING", event_type: "HTTP_TIMEOUT", message: "DEMO: checkout API exceeded the service timeout on server1.", source: "presentation-fixture", timestamp: "2026-10-31T09:42:05Z" },
 ];
 
 const events = [
-  { id: IDs.failureEvent, device_id: IDs.router, link_id: IDs.uplink, event_type: "INTERFACE_FAILURE", severity: "HIGH", message: "DEMO: R1 uplink failed.", status: "DETECTED", timestamp: "2026-10-31T09:42:00Z" },
-  { id: IDs.timeoutEvent, device_id: IDs.app, event_type: "SERVER_TIMEOUT", severity: "HIGH", message: "DEMO: downstream application requests timed out.", status: "DETECTED", timestamp: "2026-10-31T09:42:03Z" },
+  { id: IDs.failureEvent, device_id: IDs.switch1, link_id: IDs.failedLink, event_type: "INTERFACE_FAILURE", severity: "HIGH", message: "DEMO: the s1-to-s2 link failed.", status: "DETECTED", timestamp: "2026-10-31T09:42:00Z" },
+  { id: IDs.timeoutEvent, device_id: IDs.server, event_type: "SERVER_TIMEOUT", severity: "HIGH", message: "DEMO: downstream application requests to server1 timed out.", status: "DETECTED", timestamp: "2026-10-31T09:42:03Z" },
 ];
 
 const anomalies = [
-  { id: IDs.anomaly, metric_id: IDs.lossMetric, device_id: IDs.router, link_id: IDs.uplink, name: "DEMO-FIXTURE-NO-MODEL-RUN", anomaly_type: "PACKET_LOSS", severity: "HIGH", is_anomaly: true, anomaly_score: 0.99, detected_at: "2026-10-31T09:42:02Z", timestamp: "2026-10-31T09:42:02Z", message: "100% packet loss exceeded the configured 5% threshold." },
-  { id: "0b4debc9-63b6-5cc6-9216-ff82a194027d", device_id: IDs.app, name: "DEMO-FIXTURE-NO-MODEL-RUN", anomaly_type: "AVAILABILITY", severity: "MEDIUM", is_anomaly: true, anomaly_score: 0.76, detected_at: "2026-10-31T09:42:07Z", timestamp: "2026-10-31T09:42:07Z", message: "Service availability fell below its configured objective." },
+  { id: IDs.anomaly, metric_id: IDs.lossMetric, device_id: IDs.switch1, link_id: IDs.failedLink, name: "DEMO-FIXTURE-NO-MODEL-RUN", anomaly_type: "PACKET_LOSS", severity: "HIGH", is_anomaly: true, anomaly_score: 0.99, detected_at: "2026-10-31T09:42:02Z", timestamp: "2026-10-31T09:42:02Z", message: "100% packet loss exceeded the configured 5% threshold." },
+  { id: "0b4debc9-63b6-5cc6-9216-ff82a194027d", device_id: IDs.server, name: "DEMO-FIXTURE-NO-MODEL-RUN", anomaly_type: "AVAILABILITY", severity: "MEDIUM", is_anomaly: true, anomaly_score: 0.76, detected_at: "2026-10-31T09:42:07Z", timestamp: "2026-10-31T09:42:07Z", message: "Service availability fell below its configured objective." },
 ];
 
 const incident = {
   id: IDs.incident,
-  title: "DEMO: WAN uplink outage affecting checkout",
-  description: "Synthetic presentation scenario: a router uplink failure precedes packet loss and application timeouts. No live customer network or Gemini call is involved.",
+  title: "DEMO: inter-switch link outage affecting checkout",
+  description: "Synthetic presentation evidence for the canonical Mininet topology: the s1-to-s2 link failure precedes packet loss and server1 timeouts. No live customer network or Gemini call is involved.",
   severity: "HIGH",
   status: "ROOT_CAUSE_IDENTIFIED",
   start_time: "2026-10-31T09:42:00Z",
@@ -92,7 +110,7 @@ const rca = {
     candidates: [{
       cause_type: "LINK_FAILURE",
       target_kind: "LINK",
-      target_id: IDs.uplink,
+      target_id: IDs.failedLink,
       score: 20,
       score_kind: "UNCALIBRATED_RULE_POINTS",
       explanation: "The stored down uplink is the earliest directly referenced failure and is supported by packet-loss evidence.",
@@ -114,15 +132,15 @@ const impact = {
   result: {
     status: "ASSESSED",
     candidate_target_kind: "LINK",
-    candidate_target_id: IDs.uplink,
+    candidate_target_id: IDs.failedLink,
     entities: [
-      { kind: "LINK", id: IDs.uplink, classification: "OBSERVED", explanation: "The uplink is directly observed as down." },
-      { kind: "DEVICE", id: IDs.app, classification: "POTENTIAL", explanation: "The application server is downstream of the failed uplink and has timeout evidence." },
+      { kind: "LINK", id: IDs.failedLink, classification: "OBSERVED", explanation: "The s1-to-s2 link is directly observed as down." },
+      { kind: "DEVICE", id: IDs.server, classification: "POTENTIAL", explanation: "server1 is downstream of the failed inter-switch link and has timeout evidence." },
       { kind: "SERVICE", id: "checkout-api", classification: "POTENTIAL", explanation: "Checkout requests timed out after the upstream failure." },
     ],
     chain: [
-      { step: 1, source_kind: "LINK", source_id: IDs.uplink, target_kind: "DEVICE", target_id: IDs.app, relationship: "DOWNSTREAM_PATH", classification: "POTENTIAL", explanation: "Stored physical topology connects the failed uplink to the application path." },
-      { step: 2, source_kind: "DEVICE", source_id: IDs.app, target_kind: "SERVICE", target_id: "checkout-api", relationship: "HOSTS_SERVICE", classification: "POTENTIAL", explanation: "The application server hosts the affected checkout API." },
+      { step: 1, source_kind: "LINK", source_id: IDs.failedLink, target_kind: "DEVICE", target_id: IDs.server, relationship: "DOWNSTREAM_PATH", classification: "POTENTIAL", explanation: "The canonical physical topology connects the failed inter-switch link to server1." },
+      { step: 2, source_kind: "DEVICE", source_id: IDs.server, target_kind: "SERVICE", target_id: "checkout-api", relationship: "HOSTS_SERVICE", classification: "POTENTIAL", explanation: "server1 hosts the affected checkout API in this synthetic evidence set." },
     ],
     affected_devices: 1,
     affected_links: 1,
@@ -137,14 +155,14 @@ const context: IncidentTopologyContext = {
   incident_id: IDs.incident,
   source: "stored",
   evidence: [
-    { kind: "EVENT", id: IDs.failureEvent, device_id: IDs.router, link_id: IDs.uplink, device_found: true, link_found: true },
-    { kind: "EVENT", id: IDs.timeoutEvent, device_id: IDs.app, device_found: true },
-    { kind: "ANOMALY", id: IDs.anomaly, device_id: IDs.router, link_id: IDs.uplink, device_found: true, link_found: true },
+    { kind: "EVENT", id: IDs.failureEvent, device_id: IDs.switch1, link_id: IDs.failedLink, device_found: true, link_found: true },
+    { kind: "EVENT", id: IDs.timeoutEvent, device_id: IDs.server, device_found: true },
+    { kind: "ANOMALY", id: IDs.anomaly, device_id: IDs.switch1, link_id: IDs.failedLink, device_found: true, link_found: true },
   ],
-  referenced_device_ids: [IDs.router, IDs.app],
-  referenced_link_ids: [IDs.uplink],
-  context_device_ids: [IDs.router, IDs.switch, IDs.app],
-  context_link_ids: [IDs.uplink, IDs.serverLink],
+  referenced_device_ids: [IDs.switch1, IDs.server],
+  referenced_link_ids: [IDs.failedLink],
+  context_device_ids: labScenario.nodes.map((node) => node.id),
+  context_link_ids: labScenario.links.map((link) => link.id),
   missing_device_ids: [],
   missing_link_ids: [],
   unmapped_service_ids: ["checkout-api"],
@@ -152,22 +170,24 @@ const context: IncidentTopologyContext = {
 
 const monitoring: Monitoring = {
   observed_at: observedAt,
-  topology_name: "netrca_presentation_scenario",
+  topology_name: labScenario.name,
   network_state: "SYNTHETIC_DEMO",
   collection_status: "FIXTURE_LOADED",
   devices: [
-    { name: "DEMO-R1", device_type: "ROUTER", interfaces: [{ name: "r1-eth0", status: "DOWN", rx_errors: 1842, tx_errors: 916 }] },
-    { name: "DEMO-S1", device_type: "SWITCH", interfaces: [{ name: "s1-eth1", status: "DOWN", rx_errors: 44, tx_errors: 128 }] },
-    { name: "DEMO-App01", device_type: "SERVER", interfaces: [{ name: "app01-eth0", status: "UP", rx_errors: 0, tx_errors: 3 }] },
+    { name: "s1", device_type: "SWITCH", interfaces: [{ name: "s1-eth1", status: "UP", rx_errors: 0, tx_errors: 2 }, { name: "s1-eth2", status: "DOWN", rx_errors: 1842, tx_errors: 916 }] },
+    { name: "s2", device_type: "SWITCH", interfaces: [{ name: "s2-eth1", status: "DOWN", rx_errors: 44, tx_errors: 128 }, { name: "s2-eth2", status: "UP", rx_errors: 0, tx_errors: 1 }, { name: "s2-eth3", status: "UP", rx_errors: 0, tx_errors: 3 }] },
+    { name: "h1", device_type: "HOST", interfaces: [{ name: "h1-eth0", status: "UP", rx_errors: 0, tx_errors: 0 }] },
+    { name: "h2", device_type: "HOST", interfaces: [{ name: "h2-eth0", status: "UP", rx_errors: 0, tx_errors: 0 }] },
+    { name: "server1", device_type: "SERVER", interfaces: [{ name: "server1-eth0", status: "UP", rx_errors: 0, tx_errors: 3 }] },
   ],
-  links: [{ source: "DEMO-R1", destination: "DEMO-S1", status: "DOWN" }, { source: "DEMO-S1", destination: "DEMO-App01", status: "UP" }],
+  links: labScenario.links.map((link) => ({ source: link.source, destination: link.destination, status: link.key === "s1--s2" ? "DOWN" : "UP" })),
   errors: ["SYNTHETIC_PRESENTATION_DATA"],
 };
 
 const network: NetworkStatus = {
   available: false,
   state: "DISABLED",
-  topology_name: "netrca_presentation_scenario",
+  topology_name: labScenario.name,
   started_at: null,
   device_count: nodes.length,
   link_count: links.length,
@@ -219,10 +239,10 @@ export function presentationDemoResponse(path: string, method: "GET" | "POST" = 
   if (pathname === `/ai/incidents/${IDs.incident}/explain` && method === "POST") return {
     success: true,
     data: {
-      summary: [{ claim_id: "DEMO-C001", text: "A WAN uplink failure preceded packet loss and downstream checkout timeouts.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent }, { source_type: "ANOMALY", source_id: IDs.anomaly }] }],
+      summary: [{ claim_id: "DEMO-C001", text: "The s1-to-s2 link failure preceded packet loss and downstream checkout timeouts on server1.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent }, { source_type: "ANOMALY", source_id: IDs.anomaly }] }],
       observed_facts: [{ claim_id: "DEMO-C002", text: "The uplink is down and packet loss reached 100% in the synthetic evidence set.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent }, { source_type: "METRIC", source_id: IDs.lossMetric }] }],
       candidate_explanations: [{ claim_id: "DEMO-C003", text: "The deterministic rules rank the failed uplink as the leading candidate; the score is not a probability.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent }] }],
-      failure_chain_explanation: [{ claim_id: "DEMO-C004", text: "The stored topology supports a potential path from the failed uplink to the application server and checkout service.", evidence_references: [{ source_type: "EVENT", source_id: IDs.timeoutEvent }] }],
+      failure_chain_explanation: [{ claim_id: "DEMO-C004", text: "The canonical topology supports a potential path from the failed inter-switch link to server1 and the checkout service.", evidence_references: [{ source_type: "EVENT", source_id: IDs.timeoutEvent }] }],
       uncertainties: [{ claim_id: "DEMO-C005", text: "External customer impact was not independently measured.", evidence_references: [] }],
       limitations: [{ claim_id: "DEMO-C006", text: "This explanation is a static presentation fixture; no Gemini request was made.", evidence_references: [] }],
       provider: "STATIC_PRESENTATION_FIXTURE",
