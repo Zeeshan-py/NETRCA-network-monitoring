@@ -9,6 +9,14 @@ export type NetworkStatus = {
   device_count: number;
   link_count: number;
   operation: string | null;
+  last_operation?: string | null;
+  last_result?: "SUCCEEDED" | "FAILED" | null;
+  detail?: string | null;
+};
+export type Connectivity = {
+  hosts: string[];
+  packet_loss_percent: number;
+  connected: boolean;
 };
 export type TopologyNode = {
   id: string;
@@ -82,7 +90,7 @@ function apiBaseUrl(): string {
   return configured.replace(/\/$/, "");
 }
 
-export async function apiRequest<T>(path: string, options: { signal?: AbortSignal; method?: "GET" | "POST"; body?: unknown; localControl?: boolean } = {}): Promise<T> {
+export async function apiRequest<T>(path: string, options: { signal?: AbortSignal; method?: "GET" | "POST"; body?: unknown; localControl?: boolean; acceptErrorStatusData?: boolean } = {}): Promise<T> {
   if (path !== "/health") {
     const { presentationModeEnabled, presentationDemoResponse, PresentationDemoError } = await import("@/lib/presentation-demo");
     if (presentationModeEnabled()) {
@@ -114,6 +122,7 @@ export async function apiRequest<T>(path: string, options: { signal?: AbortSigna
 
   let payload: unknown;
   try { payload = await response.json(); } catch { throw new ApiError("The NetRCA API returned an unreadable response.", response.status); }
+  if (!response.ok && options.acceptErrorStatusData && isRecord(payload) && payload.success === true) return payload as T;
   if (!response.ok) {
     const error = isRecord(payload) && isRecord(payload.error) ? payload.error : undefined;
     const code = typeof error?.code === "string" ? error.code : undefined;
@@ -127,6 +136,11 @@ export async function apiRequest<T>(path: string, options: { signal?: AbortSigna
       DATABASE_UNAVAILABLE: "The database is unavailable. Check the backend database configuration.",
       GEMINI_DISABLED: "Gemini explanations are disabled by the backend configuration.",
       GEMINI_UNAVAILABLE: "The explanation provider is unavailable. Deterministic results remain available.",
+      MININET_UNAVAILABLE: "The Mininet lab is unavailable. Run the backend in the approved Ubuntu environment with simulation enabled.",
+      NETWORK_NOT_RUNNING: "Start the Mininet lab before using this operation.",
+      NETWORK_ALREADY_RUNNING: "The Mininet lab is already running.",
+      NETWORK_OPERATION_IN_PROGRESS: "Another Mininet operation is still in progress.",
+      CONNECTIVITY_FAILED: "The Mininet connectivity test failed.",
     };
     const message = code && messages[code] ? messages[code] : typeof error?.message === "string" ? error.message : "The NetRCA API could not complete the request.";
     throw new ApiError(message, response.status, code);
@@ -144,6 +158,18 @@ export async function getApiHealth(signal?: AbortSignal) {
 }
 export async function getNetworkStatus(signal?: AbortSignal) {
   return apiRequest<Envelope<NetworkStatus>>("/network/status", { signal });
+}
+export async function startNetwork(signal?: AbortSignal) {
+  return apiRequest<Envelope<NetworkStatus>>("/network/start", { method: "POST", localControl: true, signal });
+}
+export async function stopNetwork(signal?: AbortSignal) {
+  return apiRequest<Envelope<NetworkStatus>>("/network/stop", { method: "POST", localControl: true, signal });
+}
+export async function resetNetwork(signal?: AbortSignal) {
+  return apiRequest<Envelope<NetworkStatus>>("/network/reset", { method: "POST", localControl: true, signal });
+}
+export async function testNetworkConnectivity(signal?: AbortSignal) {
+  return apiRequest<Envelope<Connectivity>>("/network/connectivity-test", { method: "POST", localControl: true, acceptErrorStatusData: true, signal });
 }
 export async function getTopology(signal?: AbortSignal) {
   try {

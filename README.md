@@ -172,6 +172,26 @@ Open `http://127.0.0.1:3000` if the browser does not open automatically. The int
 
 Use the [presentation runbook](docs/presentations/PRESENTATION_RUNBOOK.md) for the five-minute narrative and the [reusable pitch deck](docs/presentations/NetRCA_Product_Pitch_Deck.pptx) for a formal product presentation.
 
+### Real Mininet dashboard demonstration
+
+The live demonstration uses two terminals. In Ubuntu WSL2, start the loopback backend from `backend/`:
+
+```bash
+sudo env NETRCA_SIMULATION_ENABLED=true NETRCA_CORS_ORIGINS=http://localhost:3000 \
+  ~/netrca-venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+In Windows PowerShell, start the real-data frontend:
+
+```powershell
+cd frontend
+$env:NEXT_PUBLIC_API_BASE_URL = "http://127.0.0.1:8000/api/v1"
+$env:NEXT_PUBLIC_NETRCA_PRESENTATION_MODE = "false"
+npm run dev -- --hostname 127.0.0.1
+```
+
+Open `http://localhost:3000`, select **Topology**, and use the controlled Start, Connectivity, Reset, and Stop actions. Always stop the lab before closing the Ubuntu backend. See the [Mininet lab guide](docs/guides/mininet-lab.md#operate-the-lab-from-the-dashboard) for safety and cleanup details.
+
 ## Standard local setup
 
 ### 1. Backend

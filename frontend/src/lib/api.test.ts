@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph } from "./api";
+import { ApiError, apiRequest, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -61,6 +61,36 @@ test("adds the established local-control header only to explicit protected actio
   const request = fetchMock.mock.calls[0][1] as RequestInit;
   expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
   expect(request.body).toBe(JSON.stringify({ event_ids: ["event"], anomaly_ids: [] }));
+});
+
+test("uses protected POST requests for the fixed Mininet lifecycle", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await startNetwork();
+  await testNetworkConnectivity();
+  await resetNetwork();
+  await stopNetwork();
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    "http://localhost:8000/api/v1/network/start",
+    "http://localhost:8000/api/v1/network/connectivity-test",
+    "http://localhost:8000/api/v1/network/reset",
+    "http://localhost:8000/api/v1/network/stop",
+  ]);
+  for (const [, request] of fetchMock.mock.calls) {
+    expect(request.method).toBe("POST");
+    expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  }
+});
+
+test("preserves a completed disconnected-host measurement returned with 503", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    ok: false,
+    status: 503,
+    json: async () => ({ success: true, data: { connected: false, hosts: ["h1", "h2", "server1"], packet_loss_percent: 50 } }),
+  }));
+  await expect(testNetworkConnectivity()).resolves.toMatchObject({ data: { connected: false, packet_loss_percent: 50 } });
 });
 
 test("requests live and stored graph sources separately without mixing them", async () => {

@@ -184,6 +184,29 @@ before a manual recovery. The backend shutdown hook attempts to stop its own
 instance. Since this phase has no authentication, a root-owned API must never
 be exposed beyond the isolated local development host.
 
+### Operate the lab from the dashboard
+
+With the Ubuntu backend above still running, start the frontend from PowerShell
+with presentation mode disabled:
+
+```powershell
+cd frontend
+$env:NEXT_PUBLIC_API_BASE_URL = "http://127.0.0.1:8000/api/v1"
+$env:NEXT_PUBLIC_NETRCA_PRESENTATION_MODE = "false"
+npm run dev -- --hostname 127.0.0.1
+```
+
+Open `http://localhost:3000`, choose **Topology**, and use the **Mininet
+lifecycle** panel. **Start lab** creates only the canonical repository scenario;
+**Test connectivity** reports measured host packet loss; **Reset topology**
+recreates the clean scenario; and **Stop lab** releases the owned Mininet/OVS
+resources. The live graph refreshes after each completed action. If the backend
+returns a transitional state, the dashboard polls the read-only status endpoint
+for at most 60 seconds instead of issuing duplicate controls.
+
+Presentation mode intentionally does not expose these controls. Use it only for
+the synthetic fallback, never as evidence that the real lab is running.
+
 ## Tests and troubleshooting
 
 Offline mock tests run on Windows and do not prove Mininet operation:

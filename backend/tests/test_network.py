@@ -13,6 +13,7 @@ from app.network.errors import NetworkAlreadyRunning, NetworkNotRunning, Operati
 from app.network.manager import NetworkManager
 from app.network.mininet_adapter import MininetAdapter
 from app.network.models import ConnectivityView, DeviceView, EnvironmentReport, LinkView, TopologyView
+from app.network.scenario import DEFAULT_SCENARIO
 from app.network.topology import HOST_NAMES, LINKS, NODES, TOPOLOGY_NAME, build_mininet_topology, validate_topology
 
 
@@ -317,14 +318,22 @@ def test_api_local_gate_and_lifecycle_with_fake_adapter():
             assert client.post("/api/v1/network/start").status_code == 403
             assert client.post("/api/v1/network/start", headers={"X-NetRCA-Local-Control":"1", "Origin":"https://evil.example"}).status_code == 403
             headers = {"X-NetRCA-Local-Control":"1"}
-            assert client.post("/api/v1/network/start", headers=headers).json()["data"]["state"] == "RUNNING"
+            started = client.post("/api/v1/network/start", headers=headers).json()["data"]
+            assert started["state"] == "RUNNING"
+            assert started["topology_name"] == DEFAULT_SCENARIO.name
+            assert (started["device_count"], started["link_count"]) == (len(DEFAULT_SCENARIO.nodes), len(DEFAULT_SCENARIO.links))
             assert client.post("/api/v1/network/start", headers=headers).status_code == 409
             assert len(client.get("/api/v1/topology").json()["data"]["links"]) == 4
+            live_graph = client.get("/api/v1/topology/analysis?source=live").json()["data"]
+            assert {item["id"] for item in live_graph["devices"]} == {str(item.id) for item in DEFAULT_SCENARIO.nodes}
+            assert {item["id"] for item in live_graph["links"]} == {str(item.id) for item in DEFAULT_SCENARIO.links}
+            assert live_graph["connected"] is True
             assert client.post("/api/v1/network/connectivity-test", headers=headers).json()["data"]["connected"]
             assert client.post("/api/v1/network/reset", headers=headers).json()["data"]["state"] == "RUNNING"
             assert client.post("/api/v1/network/restart", headers=headers).json()["data"]["state"] == "RUNNING"
             assert client.post("/api/v1/network/stop", headers=headers).json()["data"]["state"] == "STOPPED"
             assert client.get("/api/v1/topology").status_code == 409
+            assert client.get("/api/v1/topology/analysis?source=live").status_code == 409
     finally:
         fake_lab.close()
 

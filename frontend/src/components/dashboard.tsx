@@ -5,11 +5,13 @@ import Link from "next/link";
 import {
   correlateEvidence, generateIncidentExplanation, getApiHealth, getIncident, getIncidentImpact, getIncidentRca,
   getIncidentTopologyContext, getMonitoring, getNetworkStatus, getPage, getTopology, getTopologyGraph, runIncidentImpact,
-  runIncidentRca, type EvidenceRecord, type GraphSource, type GraphSummary, type Incident, type IncidentDetail,
-  type IncidentTopologyContext, type Monitoring, type NetworkStatus, type Page, type Topology,
+  runIncidentRca, startNetwork, stopNetwork, resetNetwork, testNetworkConnectivity, type Connectivity, type EvidenceRecord,
+  type GraphSource, type GraphSummary, type Incident, type IncidentDetail, type IncidentTopologyContext, type Monitoring,
+  type NetworkStatus, type Page, type Topology,
 } from "@/lib/api";
 import { TopologyExplorer, type TopologySelection } from "@/components/topology-explorer";
 import { TopologyEvidence } from "@/components/topology-evidence";
+import { NetworkLabControls } from "@/components/network-lab-controls";
 import { presentationModeEnabled } from "@/lib/presentation-demo";
 
 type Section = "Overview" | "Topology" | "Evidence" | "Anomalies" | "Incidents" | "Demo Brief";
@@ -51,6 +53,14 @@ function formatTime(value?: string) {
 }
 function errorText(error: unknown) { return message(error); }
 
+function wait(milliseconds: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, milliseconds);
+    const abort = () => { window.clearTimeout(timer); reject(new DOMException("The operation was aborted.", "AbortError")); };
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
 function State({ loading, error, empty, children }: { loading?: boolean; error?: string; empty?: boolean; children: React.ReactNode }) {
   if (loading) return <p className="state-message" role="status">Loading from the NetRCA API…</p>;
   if (error) return <p className="state-message error-message" role="alert">{error}</p>;
@@ -84,7 +94,11 @@ export function Dashboard() {
   const [incidentTopologyError, setIncidentTopologyError] = useState<string>();
   const [incidentTopologyLoading, setIncidentTopologyLoading] = useState(false);
   const [topologyReload, setTopologyReload] = useState(0);
+  const [networkAction, setNetworkAction] = useState<"start" | "reset" | "connectivity" | "stop">();
+  const [networkControlError, setNetworkControlError] = useState<string>();
+  const [connectivity, setConnectivity] = useState<Connectivity>();
   const controllerRef = useRef<AbortController | undefined>(undefined);
+  const networkControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentTopologyControllerRef = useRef<AbortController | undefined>(undefined);
   const selectedIncidentIdRef = useRef<string | undefined>(undefined);
@@ -161,11 +175,65 @@ export function Dashboard() {
     return () => {
       window.clearTimeout(timer);
       controllerRef.current?.abort();
+      networkControllerRef.current?.abort();
       incidentControllerRef.current?.abort();
       incidentTopologyControllerRef.current?.abort();
       Object.values(pageControllers.current).forEach((controller) => controller?.abort());
     };
   }, [refresh]);
+
+  async function runLifecycleAction(action: "start" | "reset" | "stop", request: (signal: AbortSignal) => Promise<{ data: NetworkStatus }>) {
+    networkControllerRef.current?.abort();
+    const controller = new AbortController();
+    networkControllerRef.current = controller;
+    setNetworkAction(action);
+    setNetworkControlError(undefined);
+    if (action !== "stop") setConnectivity(undefined);
+    try {
+      let result = await request(controller.signal);
+      setData((previous) => ({ ...previous, network: result.data }));
+      for (let attempt = 0; ["STARTING", "STOPPING", "RESETTING"].includes(result.data.state) || result.data.operation; attempt += 1) {
+        if (attempt >= 120) throw new Error("The Mininet operation did not settle within 60 seconds. Check the backend terminal before retrying.");
+        await wait(500, controller.signal);
+        result = await getNetworkStatus(controller.signal);
+        setData((previous) => ({ ...previous, network: result.data }));
+      }
+      if (result.data.state === "FAILED") throw new Error(`The Mininet operation failed${result.data.detail ? `: ${result.data.detail}` : "."}`);
+      setTopologySelection(undefined);
+      setTopologyReload((value) => value + 1);
+      await refresh();
+    } catch (error) {
+      if (!controller.signal.aborted) setNetworkControlError(message(error));
+    } finally {
+      if (networkControllerRef.current === controller) {
+        networkControllerRef.current = undefined;
+        setNetworkAction(undefined);
+      }
+    }
+  }
+
+  async function runConnectivityTest() {
+    networkControllerRef.current?.abort();
+    const controller = new AbortController();
+    networkControllerRef.current = controller;
+    setNetworkAction("connectivity");
+    setNetworkControlError(undefined);
+    setConnectivity(undefined);
+    try {
+      const result = await testNetworkConnectivity(controller.signal);
+      setConnectivity(result.data);
+      const status = await getNetworkStatus(controller.signal);
+      setData((previous) => ({ ...previous, network: status.data }));
+      setTopologyReload((value) => value + 1);
+    } catch (error) {
+      if (!controller.signal.aborted) setNetworkControlError(message(error));
+    } finally {
+      if (networkControllerRef.current === controller) {
+        networkControllerRef.current = undefined;
+        setNetworkAction(undefined);
+      }
+    }
+  }
 
   const loadIncident = useCallback(async (id: string) => {
     incidentControllerRef.current?.abort();
@@ -350,7 +418,7 @@ export function Dashboard() {
           </section>
         </div>}
 
-        {section === "Topology" && <section className="panel dashboard-content"><PanelHeading eyebrow="NETWORK GRAPH" title="Interactive topology" /><TopologyExplorer source={topologySource} onSourceChange={changeTopologySource} graph={topologyGraphSource === topologySource ? topologyGraph : undefined} loading={topologyGraphLoading} error={topologyGraphError} selection={topologySelection} onSelect={setTopologySelection} onOpenEvidence={openTopologyEvidence} onBrowseIncidents={() => setSection("Incidents")} incidentContext={incidentTopology} incidentTitle={incidentTopologyTitle} /></section>}
+        {section === "Topology" && <section className="panel dashboard-content"><PanelHeading eyebrow="NETWORK GRAPH" title="Interactive topology" /><NetworkLabControls status={data.network} action={networkAction} connectivity={connectivity} error={networkControlError} presentationMode={presentationDemo} onStart={() => void runLifecycleAction("start", startNetwork)} onReset={() => void runLifecycleAction("reset", resetNetwork)} onConnectivity={() => void runConnectivityTest()} onStop={() => void runLifecycleAction("stop", stopNetwork)} /><TopologyExplorer source={topologySource} onSourceChange={changeTopologySource} graph={topologyGraphSource === topologySource ? topologyGraph : undefined} loading={topologyGraphLoading} error={topologyGraphError} selection={topologySelection} onSelect={setTopologySelection} onOpenEvidence={openTopologyEvidence} onBrowseIncidents={() => setSection("Incidents")} incidentContext={incidentTopology} incidentTitle={incidentTopologyTitle} /></section>}
 
         {section === "Evidence" && topologyEvidenceFocus && <TopologyEvidence selection={topologyEvidenceFocus.selection} label={topologyEvidenceFocus.label} onBack={() => { setTopologyEvidenceFocus(undefined); setSection("Topology"); }} onBrowseIncidents={() => setSection("Incidents")} />}
         {section === "Evidence" && !topologyEvidenceFocus && <div className="dashboard-content">

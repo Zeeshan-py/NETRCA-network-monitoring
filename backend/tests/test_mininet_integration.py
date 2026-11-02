@@ -2,12 +2,16 @@
 import os
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app.core.config import Settings
+from app.main import create_app
 from app.network.environment import check_environment
 from app.network.errors import StartupFailure
 from app.network.manager import NetworkManager
 from app.network.mininet_adapter import MininetAdapter
 from app.network.topology import HOST_NAMES, LINKS, NODES
+from app.network.scenario import DEFAULT_SCENARIO
 
 pytestmark = pytest.mark.skipif(os.environ.get("NETRCA_RUN_MININET_TESTS") != "1", reason="Real Mininet test requires explicit opt-in")
 
@@ -61,3 +65,37 @@ def test_real_partial_startup_cleanup_allows_retry(monkeypatch):
             retry.close(timeout=30)
     finally:
         manager.close(timeout=30)
+
+
+def test_real_local_api_start_topology_connectivity_and_stop():
+    report = check_environment()
+    if not report.available:
+        pytest.skip(f"Mininet prerequisite missing: {report.code}")
+    settings = Settings(
+        _env_file=None,
+        simulation_enabled=True,
+        simulation_operation_timeout_seconds=30,
+        cors_origins="http://localhost:3000",
+    )
+    app = create_app(settings)
+    headers = {"X-NetRCA-Local-Control": "1", "Origin": "http://localhost:3000"}
+    with TestClient(app, client=("127.0.0.1", 50000)) as client:
+        started = client.post("/api/v1/network/start", headers=headers)
+        assert started.status_code == 200
+        assert started.json()["data"]["state"] == "RUNNING"
+        assert started.json()["data"]["topology_name"] == DEFAULT_SCENARIO.name
+
+        graph = client.get("/api/v1/topology/analysis?source=live", headers={"Origin": "http://localhost:3000"})
+        assert graph.status_code == 200
+        assert graph.json()["data"]["connected"] is True
+        assert {item["id"] for item in graph.json()["data"]["devices"]} == {str(item.id) for item in DEFAULT_SCENARIO.nodes}
+
+        connectivity = client.post("/api/v1/network/connectivity-test", headers=headers)
+        assert connectivity.status_code == 200
+        assert connectivity.json()["data"]["connected"] is True
+        assert connectivity.json()["data"]["packet_loss_percent"] == 0
+
+        stopped = client.post("/api/v1/network/stop", headers=headers)
+        assert stopped.status_code == 200
+        assert stopped.json()["data"]["state"] == "STOPPED"
+        assert client.get("/api/v1/topology/analysis?source=live").status_code == 409

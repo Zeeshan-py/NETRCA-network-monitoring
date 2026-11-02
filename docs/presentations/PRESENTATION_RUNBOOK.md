@@ -31,6 +31,14 @@ If a previous frontend or backend terminal is already using port 3000 or 8000,
 the start script stops safely with the exact PID instead of terminating an
 unknown process.
 
+## Optional real Mininet demonstration
+
+For a live lab demonstration, do not use the synthetic presentation launcher.
+Follow the two-terminal workflow in the [Mininet lab guide](../guides/mininet-lab.md#operate-the-lab-from-the-dashboard): run the loopback FastAPI backend inside Ubuntu WSL2 with simulation enabled, then run the frontend from PowerShell with presentation mode disabled. Open **Topology**, start the lab, show the five-node live graph, run the connectivity test, and stop the lab before closing the backend.
+
+Keep the synthetic launcher available as the presentation fallback if Ubuntu,
+Open vSwitch, or Mininet is unavailable on the classroom machine.
+
 ## Five-minute pitch flow
 
 1. Open **Demo Brief** and frame the product: deterministic evidence first,

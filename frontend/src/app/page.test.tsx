@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   getPage: vi.fn(), getIncident: vi.fn(), getIncidentRca: vi.fn(), getIncidentImpact: vi.fn(),
   getTopologyGraph: vi.fn(), getIncidentTopologyContext: vi.fn(),
   runIncidentRca: vi.fn(), runIncidentImpact: vi.fn(), correlateEvidence: vi.fn(), generateIncidentExplanation: vi.fn(),
+  startNetwork: vi.fn(), stopNetwork: vi.fn(), resetNetwork: vi.fn(), testNetworkConnectivity: vi.fn(),
 }));
 vi.mock("@/lib/api", () => api);
 
@@ -29,6 +30,19 @@ test("loads real API-backed overview and presents empty evidence honestly", asyn
   expect(screen.getByText("h1")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Evidence" }));
   expect(await screen.findAllByText("No stored records are available yet.")).toHaveLength(3);
+});
+
+test("starts the controlled lab and refreshes the live topology", async () => {
+  healthyResponses();
+  api.getNetworkStatus.mockResolvedValue({ data: { state: "STOPPED", topology_name: "netrca_lab_v1", device_count: 0, link_count: 0, operation: null } });
+  api.startNetwork.mockResolvedValue({ data: { state: "RUNNING", topology_name: "netrca_lab_v1", device_count: 5, link_count: 4, operation: null } });
+  render(<Home />);
+  fireEvent.click(screen.getByRole("button", { name: "Topology" }));
+  const start = await screen.findByRole("button", { name: "Start lab" });
+  await waitFor(() => expect(start).toBeEnabled());
+  fireEvent.click(start);
+  await waitFor(() => expect(api.startNetwork).toHaveBeenCalledWith(expect.any(AbortSignal)));
+  await waitFor(() => expect(api.getTopologyGraph).toHaveBeenCalledWith("live", expect.any(AbortSignal)));
 });
 
 test("surfaces backend failures without replacing them with demonstration data", async () => {
