@@ -225,6 +225,31 @@ td { color:#d4e1ea; line-height:1.5; max-width:420px; overflow-wrap:anywhere; }
 .detection-summary { display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; margin:14px 0; padding:12px 14px; border:1px solid var(--border); border-radius:8px; }
 .detection-summary span { color:var(--muted); }
 .detection-result-heading { display:flex; flex-wrap:wrap; gap:7px; }
+.correlation-lab { gap:16px; }
+.correlation-brief { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,.4fr); align-items:center; gap:20px; }
+.correlation-brief h2,.correlation-rules h2,.evidence-picker h2,.correlation-results h2 { margin:4px 0 8px; }
+.correlation-boundary { display:grid; gap:5px; padding:14px 16px; border:1px solid #765e2c; border-radius:10px; background:#2d2618; }
+.correlation-boundary strong { color:#e2bf70; }
+.correlation-boundary span { color:var(--muted); font-size:11px; line-height:1.5; }
+.correlation-heading { display:flex; align-items:start; justify-content:space-between; gap:16px; }
+.correlation-heading>div { display:flex; flex-wrap:wrap; align-items:center; gap:9px; }
+.rule-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:15px; }
+.rule-grid article { display:grid; gap:6px; padding:13px; border:1px solid var(--border); border-radius:9px; background:#091725; }
+.rule-grid span { color:var(--muted); font-size:10px; line-height:1.5; }
+.correlation-evidence-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; margin:16px 0; }
+.correlation-evidence-grid h3 { margin:0 0 9px; font-size:14px; }
+.evidence-choice-list { display:grid; gap:8px; }
+.evidence-choice-list label { display:flex; align-items:start; gap:10px; padding:11px 12px; border:1px solid var(--border); border-radius:8px; background:#091725; cursor:pointer; }
+.evidence-choice-list input { width:17px; height:17px; margin-top:2px; accent-color:#4da8f7; }
+.evidence-choice-list span { display:grid; gap:3px; min-width:0; }
+.evidence-choice-list small { color:var(--muted); overflow-wrap:anywhere; }
+.correlation-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; margin:15px 0; overflow:hidden; border:1px solid var(--border); border-radius:9px; background:var(--border); }
+.correlation-summary article { display:grid; gap:4px; padding:14px; background:#091725; }
+.correlation-summary strong { font-size:22px; }
+.correlation-summary span { color:var(--muted); font-size:10px; }
+.relationship-list { display:grid; gap:7px; margin-top:10px; }
+.relationship-list span { display:grid; grid-template-columns:80px minmax(0,1fr); gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; }
+.relationship-list small { color:var(--muted); overflow-wrap:anywhere; }
 .topology-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
 .topology-source,.graph-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .topology-summary { display:flex; flex-wrap:wrap; align-items:center; gap:10px; color:var(--muted); font-size:11px; }
@@ -269,7 +294,9 @@ td { color:#d4e1ea; line-height:1.5; max-width:420px; overflow-wrap:anywhere; }
 @media(max-width:900px) { .probe-controls { grid-template-columns:repeat(2,minmax(0,1fr)); } .probe-controls>div { grid-column:1/-1; } }
 @media(max-width:900px) { .fault-form { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:900px) { .collection-actions { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:900px) { .rule-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:650px) { .network-lab-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } .network-lab-facts span:nth-child(2) { border-right:0; } .network-lab-facts span:nth-child(-n+2) { border-bottom:1px solid var(--border); } }
 @media(max-width:650px) { .evidence-metadata,.live-link-list,.probe-controls { grid-template-columns:1fr; } .evidence-metadata span { border-right:0; border-bottom:1px solid var(--border); } .evidence-metadata span:last-child { border-bottom:0; } }
 @media(max-width:650px) { .fault-brief,.fault-form { grid-template-columns:1fr; } .fault-heading,.active-fault { align-items:stretch; flex-direction:column; } }
 @media(max-width:650px) { .detection-brief,.collection-actions { grid-template-columns:1fr; } .detection-heading { align-items:stretch; flex-direction:column; } }
+@media(max-width:650px) { .correlation-brief,.rule-grid,.correlation-evidence-grid,.correlation-summary { grid-template-columns:1fr; } .correlation-heading { align-items:stretch; flex-direction:column; } }

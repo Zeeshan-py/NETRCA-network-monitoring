@@ -138,6 +138,9 @@ export type DetectionResult = {
   persistence: "NOT_REQUESTED" | "PERSISTED" | "EXISTING" | "UNAVAILABLE" | "NOT_ELIGIBLE";
 };
 export type DetectionRun = { items: DetectionResult[]; anomalies_detected: number; insufficient_data: number; persisted: number };
+export type CorrelationEvidence = { kind: "EVENT" | "ANOMALY"; id: string; reason: string };
+export type CorrelationIncident = { incident_id: string; created: boolean; evidence: CorrelationEvidence[] };
+export type CorrelationRun = { incidents: CorrelationIncident[]; skipped_ids: string[]; created: number; attached: number };
 export type Page<T> = { data: T[]; pagination: { page: number; limit: number; total: number; pages: number } };
 export type EvidenceRecord = Record<string, unknown> & { id: string; timestamp?: string; detected_at?: string; severity?: string; event_type?: string; metric_type?: string; message?: string; name?: string; status?: string };
 export type Incident = { id: string; title: string; description?: string | null; severity: string; status: string; start_time: string; end_time?: string | null };
@@ -206,6 +209,9 @@ export async function apiRequest<T>(path: string, options: { signal?: AbortSigna
       STORED_METRIC_INVALID: "A selected metric is not valid Phase 6 evidence.",
       DUPLICATE_OBSERVATION: "Conflicting observations share the same evidence key.",
       CORRELATION_WRITES_DISABLED: "Incident correlation is disabled by the backend configuration.",
+      EVIDENCE_NOT_FOUND: "Selected stored evidence is missing or no longer valid.",
+      AMBIGUOUS_MEMBERSHIP: "Selected evidence already belongs to multiple incidents and cannot be assigned safely.",
+      CORRELATION_LIMIT: "The correlation window contains too many open incident anchors.",
       RCA_WRITES_DISABLED: "RCA runs are disabled by the backend configuration.",
       IMPACT_WRITES_DISABLED: "Impact analysis runs are disabled by the backend configuration.",
       DATABASE_UNAVAILABLE: "The database is unavailable. Check the backend database configuration.",
@@ -378,7 +384,7 @@ export async function runIncidentImpact(id: string, signal?: AbortSignal) {
   return apiRequest<Envelope<Record<string, unknown>>>(`/incidents/${encodeURIComponent(id)}/impact/analyze`, { method: "POST", localControl: true, signal });
 }
 export async function correlateEvidence(eventIds: string[], anomalyIds: string[], signal?: AbortSignal) {
-  return apiRequest<Envelope<Record<string, unknown>>>("/events/correlate", { method: "POST", localControl: true, body: { event_ids: eventIds, anomaly_ids: anomalyIds }, signal });
+  return apiRequest<Envelope<CorrelationRun>>("/events/correlate", { method: "POST", localControl: true, body: { event_ids: eventIds.slice(0, 100), anomaly_ids: anomalyIds.slice(0, Math.max(0, 100 - eventIds.length)) }, signal });
 }
 export async function generateIncidentExplanation(id: string, signal?: AbortSignal) {
   return apiRequest<Envelope<Record<string, unknown>>>(`/ai/incidents/${encodeURIComponent(id)}/explain`, { method: "POST", localControl: true, signal });

@@ -54,6 +54,12 @@ baseline evidence and state that its score is not a probability. If storage is
 unavailable, show the honest error and use the synthetic presentation as the
 fallback instead of claiming persistence.
 
+For incident grouping, open **Correlation Lab**, select the link event and its
+directly related packet-loss anomaly, and explain why time alone would not be
+enough. Run correlation, show the `SAME_LINK` membership reason, then open the
+incident. In presentation mode this is a synthetic browser replay; in real mode
+it requires the explicit correlation write flag and database.
+
 Keep the synthetic launcher available as the presentation fallback if Ubuntu,
 Open vSwitch, or Mininet is unavailable on the classroom machine.
 

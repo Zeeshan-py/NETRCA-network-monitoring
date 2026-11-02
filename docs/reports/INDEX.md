@@ -12,6 +12,7 @@ This directory is the central index for NetRCA implementation, verification, and
 | Semester 4 | Evidence collection demonstration | [Semester Phase 4 report](SEMESTER_PHASE4_EVIDENCE_COLLECTION.md) |
 | Semester 5 | Controlled fault and observable failure | [Semester Phase 5 report](SEMESTER_PHASE5_CONTROLLED_FAULT.md) |
 | Semester 6 | Stored evidence and deterministic anomaly detection | [Semester Phase 6 report](SEMESTER_PHASE6_STORED_EVIDENCE_DETECTION.md) |
+| Semester 7 | Evidence correlation and incident grouping | [Semester Phase 7 report](SEMESTER_PHASE7_CORRELATION_INCIDENTS.md) |
 
 ## Original implementation phases
 

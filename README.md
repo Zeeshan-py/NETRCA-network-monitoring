@@ -198,6 +198,8 @@ For a controlled failure demonstration, enable fault injection only in the local
 
 When PostgreSQL is reachable and the canonical topology is mapped, set `NETRCA_PIPELINE_WRITES_ENABLED=true` on the local Ubuntu backend and use **Detection Lab** to explicitly store a live snapshot or bounded probe. Select supported stored metrics to run deterministic detection with `persist: false`; no collection or anomaly write occurs automatically.
 
+With validated stored events or anomalies available, enable `NETRCA_CORRELATION_WRITES_ENABLED=true` only on the local backend and use **Correlation Lab** to select specific evidence. NetRCA groups only evidence connected by an explicit direct relationship within the configured time window, records the reason, and safely reuses a related open incident when justified.
+
 ## Standard local setup
 
 ### 1. Backend

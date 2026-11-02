@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
+import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -151,6 +151,18 @@ test("uses explicit protected evidence collection and non-persisting detection r
   }
   expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({ source: "h1", destination: "server1", count: 2, timeout_seconds: 2 });
   expect(JSON.parse(String(fetchMock.mock.calls[2][1].body))).toEqual({ metric_ids: ["metric-1", "metric-2"], persist: false });
+});
+
+test("submits only explicitly selected evidence to protected correlation", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: { incidents: [], skipped_ids: [], created: 0, attached: 0 } }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await correlateEvidence(["event-1"], ["anomaly-1"]);
+  const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(url).toBe("http://localhost:8000/api/v1/events/correlate");
+  expect(request.method).toBe("POST");
+  expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  expect(JSON.parse(String(request.body))).toEqual({ event_ids: ["event-1"], anomaly_ids: ["anomaly-1"] });
 });
 
 test("requests live and stored graph sources separately without mixing them", async () => {

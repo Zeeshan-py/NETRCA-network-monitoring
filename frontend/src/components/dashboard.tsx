@@ -7,7 +7,7 @@ import {
   getApiHealth, getIncident, getIncidentImpact, getIncidentRca,
   getFaults, getFaultTypes, getIncidentTopologyContext, getMonitoring, getNetworkStatus, getPage, getTopology, getTopologyGraph,
   injectFault, probeNetwork, recoverFault, resetFaults, runIncidentImpact, runIncidentRca, startNetwork, stopNetwork, resetNetwork,
-  testNetworkConnectivity, type Connectivity, type DetectionRun, type EvidenceCollectionResult, type EvidenceRecord,
+  testNetworkConnectivity, type Connectivity, type CorrelationRun, type DetectionRun, type EvidenceCollectionResult, type EvidenceRecord,
   type FaultRecord, type FaultRequest, type FaultType,
   type GraphSource, type GraphSummary, type Incident, type IncidentDetail, type IncidentTopologyContext, type Monitoring,
   type NetworkStatus, type Page, type ProbeReading, type Topology,
@@ -18,9 +18,10 @@ import { NetworkLabControls } from "@/components/network-lab-controls";
 import { LiveEvidenceCapture } from "@/components/live-evidence-capture";
 import { FaultLab } from "@/components/fault-lab";
 import { DetectionLab } from "@/components/detection-lab";
+import { CorrelationLab } from "@/components/correlation-lab";
 import { presentationModeEnabled } from "@/lib/presentation-demo";
 
-type Section = "Overview" | "Topology" | "Evidence" | "Fault Lab" | "Detection Lab" | "Anomalies" | "Incidents" | "Demo Brief";
+type Section = "Overview" | "Topology" | "Evidence" | "Fault Lab" | "Detection Lab" | "Correlation Lab" | "Anomalies" | "Incidents" | "Demo Brief";
 type ViewData = {
   api: boolean;
   network?: NetworkStatus;
@@ -41,7 +42,7 @@ type IncidentAnalysis = {
 };
 type PageResource = "metrics" | "logs" | "events" | "anomalies" | "incidents";
 
-const sections: Section[] = ["Overview", "Topology", "Evidence", "Fault Lab", "Detection Lab", "Anomalies", "Incidents", "Demo Brief"];
+const sections: Section[] = ["Overview", "Topology", "Evidence", "Fault Lab", "Detection Lab", "Correlation Lab", "Anomalies", "Incidents", "Demo Brief"];
 const presentationDemo = presentationModeEnabled();
 
 function message(error: unknown) {
@@ -114,11 +115,15 @@ export function Dashboard() {
   const [detectionError, setDetectionError] = useState<string>();
   const [collectionResult, setCollectionResult] = useState<EvidenceCollectionResult>();
   const [detectionResult, setDetectionResult] = useState<DetectionRun>();
+  const [correlationResult, setCorrelationResult] = useState<CorrelationRun>();
+  const [correlationRunning, setCorrelationRunning] = useState(false);
+  const [correlationError, setCorrelationError] = useState<string>();
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const networkControllerRef = useRef<AbortController | undefined>(undefined);
   const evidenceControllerRef = useRef<AbortController | undefined>(undefined);
   const faultControllerRef = useRef<AbortController | undefined>(undefined);
   const detectionControllerRef = useRef<AbortController | undefined>(undefined);
+  const correlationControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentTopologyControllerRef = useRef<AbortController | undefined>(undefined);
   const selectedIncidentIdRef = useRef<string | undefined>(undefined);
@@ -237,6 +242,7 @@ export function Dashboard() {
       evidenceControllerRef.current?.abort();
       faultControllerRef.current?.abort();
       detectionControllerRef.current?.abort();
+      correlationControllerRef.current?.abort();
       incidentControllerRef.current?.abort();
       incidentTopologyControllerRef.current?.abort();
       Object.values(pageControllers.current).forEach((controller) => controller?.abort());
@@ -393,6 +399,27 @@ export function Dashboard() {
       if (detectionControllerRef.current === controller) {
         detectionControllerRef.current = undefined;
         setDetectionAction(undefined);
+      }
+    }
+  }
+
+  async function runCorrelation(eventIds: string[], anomalyIds: string[]) {
+    correlationControllerRef.current?.abort();
+    const controller = new AbortController();
+    correlationControllerRef.current = controller;
+    setCorrelationRunning(true);
+    setCorrelationError(undefined);
+    setCorrelationResult(undefined);
+    try {
+      const result = await correlateEvidence(eventIds, anomalyIds, controller.signal);
+      setCorrelationResult(result.data);
+      await refresh();
+    } catch (error) {
+      if (!controller.signal.aborted) setCorrelationError(message(error));
+    } finally {
+      if (correlationControllerRef.current === controller) {
+        correlationControllerRef.current = undefined;
+        setCorrelationRunning(false);
       }
     }
   }
@@ -588,12 +615,14 @@ export function Dashboard() {
           <EvidenceTable title="Metrics" records={metricRecords} loading={loading} error={errors.metrics} page={data.metrics?.pagination} pageLoading={pageLoading.metrics} onPage={(direction) => void changePage("metrics", direction)} timeKey="timestamp" valueKey="metric_type" detailKey="value" />
           <EvidenceTable title="Logs" records={logRecords} loading={loading} error={errors.logs} page={data.logs?.pagination} pageLoading={pageLoading.logs} onPage={(direction) => void changePage("logs", direction)} timeKey="timestamp" valueKey="severity" detailKey="message" />
           <EvidenceTable title="Events" records={events} loading={loading} error={errors.events} page={data.events?.pagination} pageLoading={pageLoading.events} onPage={(direction) => void changePage("events", direction)} timeKey="timestamp" valueKey="event_type" detailKey="message" />
-          <section className="panel"><PanelHeading eyebrow="CONTROLLED ACTION" title="Correlate the displayed evidence" /><p className="muted">Submits the currently displayed page of stored events and anomalies. This creates or updates incident records only when the backend’s local-control and correlation-write settings allow it.</p><button className="button primary" disabled={!events.length && !anomalyRecords.length || loading || pageLoading.events || pageLoading.anomalies} onClick={() => void performAction("Correlation request completed. Refreshing stored incidents.", () => correlateEvidence(events.map((item) => item.id), anomalyRecords.map((item) => item.id)))}>Correlate current page</button></section>
+          <section className="panel"><PanelHeading eyebrow="NEXT WORKFLOW" title="Group selected evidence into incidents" /><p className="muted">Use Correlation Lab to choose specific stored events and anomalies, review the direct relationship rules, and inspect the resulting membership reasons.</p><button className="button primary" disabled={!events.length && !anomalyRecords.length || loading} onClick={() => setSection("Correlation Lab")}>Open Correlation Lab</button></section>
         </div>}
 
         {section === "Fault Lab" && <FaultLab snapshot={data.monitoring} records={faultRecords} types={faultTypes} action={faultAction} error={faultError} networkRunning={data.network?.state === "RUNNING"} presentationMode={presentationDemo} onRefresh={() => void refreshFaultLab()} onInject={(value: FaultRequest) => void runFaultAction("inject", (signal) => injectFault(value, signal))} onRecover={(id) => void runFaultAction("recover", (signal) => recoverFault(id, signal))} onReset={() => void runFaultAction("reset", (signal) => resetFaults(signal))} onOpenEvidence={() => { setSection("Evidence"); void captureLiveEvidence(); }} />}
 
         {section === "Detection Lab" && <DetectionLab snapshot={data.monitoring} metrics={metricRecords} collection={collectionResult} detection={detectionResult} action={detectionAction} error={detectionError} networkRunning={data.network?.state === "RUNNING"} presentationMode={presentationDemo} onCollect={() => void runEvidenceCollection("collect", (signal) => collectEvidenceSnapshot(signal))} onProbe={(source, destination) => void runEvidenceCollection("probe", (signal) => collectEvidenceProbe(source, destination, signal))} onDetect={(metricIds) => void runDetection(metricIds)} onRefresh={() => void refresh()} onOpenAnomalies={() => setSection("Anomalies")} />}
+
+        {section === "Correlation Lab" && <CorrelationLab events={events} anomalies={anomalyRecords} result={correlationResult} running={correlationRunning} error={correlationError} presentationMode={presentationDemo} onCorrelate={(eventIds, anomalyIds) => void runCorrelation(eventIds, anomalyIds)} onRefresh={() => void refresh()} onOpenIncident={(id) => { setSection("Incidents"); void loadIncident(id); }} />}
 
         {section === "Anomalies" && <section className="panel dashboard-content"><PanelHeading eyebrow="PHASE 8" title="Detected anomalies" /><State loading={loading} error={errors.anomalies} empty={!anomalyRecords.length}><RecordTable records={anomalyRecords} /><PageControls page={data.anomalies?.pagination} loading={pageLoading.anomalies} onPage={(direction) => void changePage("anomalies", direction)} /></State></section>}
 

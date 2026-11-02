@@ -107,6 +107,21 @@ test("stores an explicit snapshot and analyzes selected stored metrics without p
   expect(await screen.findByText("Packet loss exceeds the configured threshold")).toBeInTheDocument();
 });
 
+test("correlates only selected stored evidence and displays grounded reasons", async () => {
+  healthyResponses();
+  const event = { id: "event-1", event_type: "LINK_FAILURE", severity: "HIGH", timestamp: "2026-11-03T10:00:00Z", message: "Link down" };
+  const anomaly = { id: "anomaly-1", name: "Packet loss", severity: "HIGH", detected_at: "2026-11-03T10:00:10Z", model_name: "NETRCA_THRESHOLD", is_anomaly: true };
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "events" ? [event] : resource === "anomalies" ? [anomaly] : [], pagination: { page: 1, limit: 20, total: ["events", "anomalies"].includes(resource) ? 1 : 0, pages: ["events", "anomalies"].includes(resource) ? 1 : 0 } }));
+  api.correlateEvidence.mockResolvedValue({ data: { created: 1, attached: 2, skipped_ids: [], incidents: [{ incident_id: "incident-1", created: true, evidence: [{ kind: "EVENT", id: "event-1", reason: "SEED" }, { kind: "ANOMALY", id: "anomaly-1", reason: "SAME_LINK" }] }] } });
+  render(<Home />);
+  fireEvent.click(await screen.findByRole("button", { name: "Correlation Lab" }));
+  fireEvent.click(await screen.findByLabelText("Select event event-1"));
+  fireEvent.click(screen.getByLabelText("Select anomaly anomaly-1"));
+  fireEvent.click(screen.getByRole("button", { name: "Correlate selected evidence" }));
+  await waitFor(() => expect(api.correlateEvidence).toHaveBeenCalledWith(["event-1"], ["anomaly-1"], expect.any(AbortSignal)));
+  expect(await screen.findByText(/SAME LINK/i)).toBeInTheDocument();
+});
+
 test("surfaces backend failures without replacing them with demonstration data", async () => {
   healthyResponses();
   api.getPage.mockImplementation(async (resource: string) => {
