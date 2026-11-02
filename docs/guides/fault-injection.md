@@ -30,3 +30,17 @@ Requests use `/api/v1` and JSON. Examples:
 When a matching active device or exact endpoint/interface link exists in PostgreSQL, lifecycle transitions are saved to the existing `public.fault_injections` table. No schema migration was added. Records that cannot be mapped or saved remain available in process with `storage_status` of `UNMAPPED` or `UNAVAILABLE`. Stored history is not an authority for restoring a live fault: restoration uses the live controller and its captured pre-state. Phase 6 metrics/events remain observation-based; injecting a fault itself does not invent an event. Monitoring snapshots and probes can observe an active fault, and Phase 6 can persist those actual readings through its existing opt-in endpoints.
 
 From `backend/`, run offline tests on Windows with `.venv/Scripts/python.exe -m pytest -q`. In Ubuntu WSL2 as root, run the real lab suite with `NETRCA_RUN_MININET_TESTS=1 NETRCA_RUN_FAULT_TESTS=1 /home/zeeshan/netrca-venv/bin/python -m pytest tests -q`. The isolated rollback-only PostgreSQL test is opt-in with `NETRCA_RUN_FAULT_DB_TESTS=1`; it needs a reachable configured database. Stop the lab through its existing network API or CLI; fault cleanup runs before the owned Mininet instance stops. If restoration fails, inspect the fault record and recover it again before exiting the backend.
+
+## Semester dashboard demonstration
+
+With the live backend configured as above, open **Fault Lab** in the dashboard.
+Select **Refresh safe targets** to obtain the current interfaces and links from
+the canonical monitoring snapshot. The dashboard exposes only the four
+implemented fault types and fixed parameter choices; it does not accept
+free-form nodes, interfaces, commands, addresses, or timing values.
+
+After injection, the active record displays its expiry, restoration, and
+storage state. Select **Capture post-fault evidence** to observe the resulting
+interface and link state without automatically persisting or analyzing it.
+Recover the active fault and confirm restoration before stopping the lab.
+Presentation mode cannot invoke these controls.

@@ -63,9 +63,52 @@ export type Monitoring = {
   topology_name: string;
   network_state: string;
   collection_status: string;
-  devices: Array<{ name: string; device_type: string; interfaces: Array<{ name: string; status: string; rx_errors: number | null; tx_errors: number | null }> }>;
-  links: Array<{ source: string; destination: string; status: string }>;
+  counter_unit?: string;
+  devices: Array<{ name: string; device_type: string; interfaces: Array<{
+    name: string; status: string; operational_state?: string | null;
+    rx_bytes?: number | null; tx_bytes?: number | null; rx_packets?: number | null; tx_packets?: number | null;
+    rx_errors: number | null; tx_errors: number | null; error_code?: string | null;
+  }> }>;
+  links: Array<{ source: string; destination: string; status: string; interface_source?: string; interface_destination?: string }>;
   errors: string[];
+};
+export type ProbeReading = {
+  observed_at: string;
+  source: string;
+  destination: string;
+  packets_sent: number | null;
+  packets_received: number | null;
+  packet_loss_percent: number | null;
+  latency_ms: number | null;
+  status: "REACHABLE" | "UNREACHABLE" | "TIMEOUT" | "UNAVAILABLE";
+  error_code?: string | null;
+};
+export type FaultType = "INTERFACE_FAILURE" | "LINK_FAILURE" | "PACKET_LOSS" | "HIGH_LATENCY";
+export type FaultRequest = {
+  fault_type: FaultType;
+  device?: string;
+  interface?: string;
+  source?: string;
+  destination?: string;
+  packet_loss_percent?: number;
+  latency_ms?: number;
+  duration_seconds: number;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+};
+export type FaultRecord = {
+  id: string;
+  fault_type: FaultType;
+  status: "ACTIVE" | "COMPLETED" | "CANCELLED";
+  target: Record<string, string>;
+  parameters: Record<string, string | number>;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  started_at: string;
+  expires_at: string;
+  ended_at?: string | null;
+  end_reason?: string | null;
+  restoration_result: "PENDING" | "SUCCEEDED" | "FAILED";
+  error_code?: string | null;
+  storage_status: "SYNCED" | "UNMAPPED" | "UNAVAILABLE";
 };
 export type Page<T> = { data: T[]; pagination: { page: number; limit: number; total: number; pages: number } };
 export type EvidenceRecord = Record<string, unknown> & { id: string; timestamp?: string; detected_at?: string; severity?: string; event_type?: string; metric_type?: string; message?: string; name?: string; status?: string };
@@ -141,6 +184,9 @@ export async function apiRequest<T>(path: string, options: { signal?: AbortSigna
       NETWORK_ALREADY_RUNNING: "The Mininet lab is already running.",
       NETWORK_OPERATION_IN_PROGRESS: "Another Mininet operation is still in progress.",
       CONNECTIVITY_FAILED: "The Mininet connectivity test failed.",
+      FAULT_INJECTION_DISABLED: "Fault injection is disabled. Enable it only in the approved local Mininet lab.",
+      ACTIVE_FAULT_EXISTS: "Recover the active fault before injecting another.",
+      FAULT_NOT_FOUND: "The fault is no longer available in this backend process.",
     };
     const message = code && messages[code] ? messages[code] : typeof error?.message === "string" ? error.message : "The NetRCA API could not complete the request.";
     throw new ApiError(message, response.status, code);
@@ -223,6 +269,33 @@ export async function getIncidentTopologyContext(id: string, signal?: AbortSigna
 }
 export async function getMonitoring(signal?: AbortSignal) {
   return apiRequest<Envelope<Monitoring>>("/network/monitoring", { signal });
+}
+export async function probeNetwork(source: string, destination: string, signal?: AbortSignal) {
+  return apiRequest<Envelope<ProbeReading>>("/network/monitoring/probe", {
+    method: "POST", localControl: true, signal,
+    body: { source, destination, count: 2, timeout_seconds: 2 },
+  });
+}
+export async function getFaultTypes(signal?: AbortSignal) {
+  return apiRequest<Envelope<FaultType[]>>("/faults/types", { signal });
+}
+export async function getFaults(signal?: AbortSignal): Promise<Page<FaultRecord>> {
+  const payload = await apiRequest<Record<string, unknown>>("/faults?page=1&limit=100", { signal });
+  if (!Array.isArray(payload.data) || !isRecord(payload.pagination)
+      || typeof payload.pagination.page !== "number" || typeof payload.pagination.limit !== "number"
+      || typeof payload.pagination.total !== "number" || typeof payload.pagination.pages !== "number") {
+    throw new ApiError("The fault history response did not match the expected paginated contract.");
+  }
+  return { data: payload.data as FaultRecord[], pagination: payload.pagination as Page<FaultRecord>["pagination"] };
+}
+export async function injectFault(value: FaultRequest, signal?: AbortSignal) {
+  return apiRequest<Envelope<FaultRecord>>("/faults/inject", { method: "POST", localControl: true, body: value, signal });
+}
+export async function recoverFault(id: string, signal?: AbortSignal) {
+  return apiRequest<Envelope<FaultRecord>>(`/faults/${encodeURIComponent(id)}/recover`, { method: "POST", localControl: true, signal });
+}
+export async function resetFaults(signal?: AbortSignal) {
+  return apiRequest<Envelope<FaultRecord | []>>("/faults/reset", { method: "POST", localControl: true, signal });
 }
 
 export async function getPage<T>(resource: "metrics" | "logs" | "events" | "anomalies" | "incidents", page = 1, limit = 20, signal?: AbortSignal, filter?: { deviceId?: string; linkId?: string }): Promise<Page<T>> {

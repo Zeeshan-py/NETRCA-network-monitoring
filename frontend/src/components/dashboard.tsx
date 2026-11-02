@@ -4,17 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   correlateEvidence, generateIncidentExplanation, getApiHealth, getIncident, getIncidentImpact, getIncidentRca,
-  getIncidentTopologyContext, getMonitoring, getNetworkStatus, getPage, getTopology, getTopologyGraph, runIncidentImpact,
-  runIncidentRca, startNetwork, stopNetwork, resetNetwork, testNetworkConnectivity, type Connectivity, type EvidenceRecord,
+  getFaults, getFaultTypes, getIncidentTopologyContext, getMonitoring, getNetworkStatus, getPage, getTopology, getTopologyGraph,
+  injectFault, probeNetwork, recoverFault, resetFaults, runIncidentImpact, runIncidentRca, startNetwork, stopNetwork, resetNetwork,
+  testNetworkConnectivity, type Connectivity, type EvidenceRecord, type FaultRecord, type FaultRequest, type FaultType,
   type GraphSource, type GraphSummary, type Incident, type IncidentDetail, type IncidentTopologyContext, type Monitoring,
-  type NetworkStatus, type Page, type Topology,
+  type NetworkStatus, type Page, type ProbeReading, type Topology,
 } from "@/lib/api";
 import { TopologyExplorer, type TopologySelection } from "@/components/topology-explorer";
 import { TopologyEvidence } from "@/components/topology-evidence";
 import { NetworkLabControls } from "@/components/network-lab-controls";
+import { LiveEvidenceCapture } from "@/components/live-evidence-capture";
+import { FaultLab } from "@/components/fault-lab";
 import { presentationModeEnabled } from "@/lib/presentation-demo";
 
-type Section = "Overview" | "Topology" | "Evidence" | "Anomalies" | "Incidents" | "Demo Brief";
+type Section = "Overview" | "Topology" | "Evidence" | "Fault Lab" | "Anomalies" | "Incidents" | "Demo Brief";
 type ViewData = {
   api: boolean;
   network?: NetworkStatus;
@@ -35,7 +38,7 @@ type IncidentAnalysis = {
 };
 type PageResource = "metrics" | "logs" | "events" | "anomalies" | "incidents";
 
-const sections: Section[] = ["Overview", "Topology", "Evidence", "Anomalies", "Incidents", "Demo Brief"];
+const sections: Section[] = ["Overview", "Topology", "Evidence", "Fault Lab", "Anomalies", "Incidents", "Demo Brief"];
 const presentationDemo = presentationModeEnabled();
 
 function message(error: unknown) {
@@ -97,8 +100,17 @@ export function Dashboard() {
   const [networkAction, setNetworkAction] = useState<"start" | "reset" | "connectivity" | "stop">();
   const [networkControlError, setNetworkControlError] = useState<string>();
   const [connectivity, setConnectivity] = useState<Connectivity>();
+  const [evidenceAction, setEvidenceAction] = useState<"snapshot" | "probe">();
+  const [evidenceCaptureError, setEvidenceCaptureError] = useState<string>();
+  const [liveProbe, setLiveProbe] = useState<ProbeReading>();
+  const [faultTypes, setFaultTypes] = useState<FaultType[]>([]);
+  const [faultRecords, setFaultRecords] = useState<FaultRecord[]>([]);
+  const [faultAction, setFaultAction] = useState<"refresh" | "inject" | "recover" | "reset">();
+  const [faultError, setFaultError] = useState<string>();
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const networkControllerRef = useRef<AbortController | undefined>(undefined);
+  const evidenceControllerRef = useRef<AbortController | undefined>(undefined);
+  const faultControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentTopologyControllerRef = useRef<AbortController | undefined>(undefined);
   const selectedIncidentIdRef = useRef<string | undefined>(undefined);
@@ -151,6 +163,38 @@ export function Dashboard() {
     setRefreshing(false);
   }, []);
 
+  const refreshFaultLab = useCallback(async () => {
+    if (presentationDemo) return;
+    faultControllerRef.current?.abort();
+    const controller = new AbortController();
+    faultControllerRef.current = controller;
+    setFaultAction("refresh");
+    setFaultError(undefined);
+    try {
+      const results = await Promise.allSettled([
+        getFaultTypes(controller.signal), getFaults(controller.signal), getMonitoring(controller.signal), getNetworkStatus(controller.signal),
+      ]);
+      if (controller.signal.aborted) return;
+      const [types, faults, monitoring, network] = results;
+      const failures = results.filter((result) => result.status === "rejected");
+      if (types.status === "fulfilled") setFaultTypes(types.value.data);
+      if (faults.status === "fulfilled") setFaultRecords(faults.value.data);
+      setData((previous) => ({
+        ...previous,
+        monitoring: monitoring.status === "fulfilled" ? monitoring.value.data : previous.monitoring,
+        network: network.status === "fulfilled" ? network.value.data : previous.network,
+      }));
+      if (failures.length) setFaultError(message(failures[0].reason));
+    } catch (error) {
+      if (!controller.signal.aborted) setFaultError(message(error));
+    } finally {
+      if (faultControllerRef.current === controller) {
+        faultControllerRef.current = undefined;
+        setFaultAction(undefined);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (section !== "Topology") return;
     const controller = new AbortController();
@@ -171,11 +215,19 @@ export function Dashboard() {
   }, [section, topologySource, topologyReload]);
 
   useEffect(() => {
+    if (section !== "Fault Lab" || presentationDemo) return;
+    void refreshFaultLab();
+    return () => faultControllerRef.current?.abort();
+  }, [section, refreshFaultLab]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
     return () => {
       window.clearTimeout(timer);
       controllerRef.current?.abort();
       networkControllerRef.current?.abort();
+      evidenceControllerRef.current?.abort();
+      faultControllerRef.current?.abort();
       incidentControllerRef.current?.abort();
       incidentTopologyControllerRef.current?.abort();
       Object.values(pageControllers.current).forEach((controller) => controller?.abort());
@@ -188,6 +240,7 @@ export function Dashboard() {
     networkControllerRef.current = controller;
     setNetworkAction(action);
     setNetworkControlError(undefined);
+    setLiveProbe(undefined);
     if (action !== "stop") setConnectivity(undefined);
     try {
       let result = await request(controller.signal);
@@ -231,6 +284,66 @@ export function Dashboard() {
       if (networkControllerRef.current === controller) {
         networkControllerRef.current = undefined;
         setNetworkAction(undefined);
+      }
+    }
+  }
+
+  async function captureLiveEvidence() {
+    evidenceControllerRef.current?.abort();
+    const controller = new AbortController();
+    evidenceControllerRef.current = controller;
+    setEvidenceAction("snapshot");
+    setEvidenceCaptureError(undefined);
+    try {
+      const result = await getMonitoring(controller.signal);
+      setData((previous) => ({ ...previous, monitoring: result.data }));
+    } catch (error) {
+      if (!controller.signal.aborted) setEvidenceCaptureError(message(error));
+    } finally {
+      if (evidenceControllerRef.current === controller) {
+        evidenceControllerRef.current = undefined;
+        setEvidenceAction(undefined);
+      }
+    }
+  }
+
+  async function runLiveProbe(source: string, destination: string) {
+    evidenceControllerRef.current?.abort();
+    const controller = new AbortController();
+    evidenceControllerRef.current = controller;
+    setEvidenceAction("probe");
+    setEvidenceCaptureError(undefined);
+    setLiveProbe(undefined);
+    try {
+      const result = await probeNetwork(source, destination, controller.signal);
+      setLiveProbe(result.data);
+    } catch (error) {
+      if (!controller.signal.aborted) setEvidenceCaptureError(message(error));
+    } finally {
+      if (evidenceControllerRef.current === controller) {
+        evidenceControllerRef.current = undefined;
+        setEvidenceAction(undefined);
+      }
+    }
+  }
+
+  async function runFaultAction(action: "inject" | "recover" | "reset", request: (signal: AbortSignal) => Promise<unknown>) {
+    faultControllerRef.current?.abort();
+    const controller = new AbortController();
+    faultControllerRef.current = controller;
+    setFaultAction(action);
+    setFaultError(undefined);
+    try {
+      await request(controller.signal);
+      const [faults, monitoring, network] = await Promise.all([getFaults(controller.signal), getMonitoring(controller.signal), getNetworkStatus(controller.signal)]);
+      setFaultRecords(faults.data);
+      setData((previous) => ({ ...previous, monitoring: monitoring.data, network: network.data }));
+    } catch (error) {
+      if (!controller.signal.aborted) setFaultError(message(error));
+    } finally {
+      if (faultControllerRef.current === controller) {
+        faultControllerRef.current = undefined;
+        setFaultAction(undefined);
       }
     }
   }
@@ -422,11 +535,14 @@ export function Dashboard() {
 
         {section === "Evidence" && topologyEvidenceFocus && <TopologyEvidence selection={topologyEvidenceFocus.selection} label={topologyEvidenceFocus.label} onBack={() => { setTopologyEvidenceFocus(undefined); setSection("Topology"); }} onBrowseIncidents={() => setSection("Incidents")} />}
         {section === "Evidence" && !topologyEvidenceFocus && <div className="dashboard-content">
+          <LiveEvidenceCapture snapshot={data.monitoring} probe={liveProbe} action={evidenceAction} error={evidenceCaptureError} networkRunning={data.network?.state === "RUNNING"} presentationMode={presentationDemo} onCapture={() => void captureLiveEvidence()} onProbe={(source, destination) => void runLiveProbe(source, destination)} />
           <EvidenceTable title="Metrics" records={metricRecords} loading={loading} error={errors.metrics} page={data.metrics?.pagination} pageLoading={pageLoading.metrics} onPage={(direction) => void changePage("metrics", direction)} timeKey="timestamp" valueKey="metric_type" detailKey="value" />
           <EvidenceTable title="Logs" records={logRecords} loading={loading} error={errors.logs} page={data.logs?.pagination} pageLoading={pageLoading.logs} onPage={(direction) => void changePage("logs", direction)} timeKey="timestamp" valueKey="severity" detailKey="message" />
           <EvidenceTable title="Events" records={events} loading={loading} error={errors.events} page={data.events?.pagination} pageLoading={pageLoading.events} onPage={(direction) => void changePage("events", direction)} timeKey="timestamp" valueKey="event_type" detailKey="message" />
           <section className="panel"><PanelHeading eyebrow="CONTROLLED ACTION" title="Correlate the displayed evidence" /><p className="muted">Submits the currently displayed page of stored events and anomalies. This creates or updates incident records only when the backend’s local-control and correlation-write settings allow it.</p><button className="button primary" disabled={!events.length && !anomalyRecords.length || loading || pageLoading.events || pageLoading.anomalies} onClick={() => void performAction("Correlation request completed. Refreshing stored incidents.", () => correlateEvidence(events.map((item) => item.id), anomalyRecords.map((item) => item.id)))}>Correlate current page</button></section>
         </div>}
+
+        {section === "Fault Lab" && <FaultLab snapshot={data.monitoring} records={faultRecords} types={faultTypes} action={faultAction} error={faultError} networkRunning={data.network?.state === "RUNNING"} presentationMode={presentationDemo} onRefresh={() => void refreshFaultLab()} onInject={(value: FaultRequest) => void runFaultAction("inject", (signal) => injectFault(value, signal))} onRecover={(id) => void runFaultAction("recover", (signal) => recoverFault(id, signal))} onReset={() => void runFaultAction("reset", (signal) => resetFaults(signal))} onOpenEvidence={() => { setSection("Evidence"); void captureLiveEvidence(); }} />}
 
         {section === "Anomalies" && <section className="panel dashboard-content"><PanelHeading eyebrow="PHASE 8" title="Detected anomalies" /><State loading={loading} error={errors.anomalies} empty={!anomalyRecords.length}><RecordTable records={anomalyRecords} /><PageControls page={data.anomalies?.pagination} loading={pageLoading.anomalies} onPage={(direction) => void changePage("anomalies", direction)} /></State></section>}
 

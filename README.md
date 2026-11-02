@@ -177,7 +177,7 @@ Use the [presentation runbook](docs/presentations/PRESENTATION_RUNBOOK.md) for t
 The live demonstration uses two terminals. In Ubuntu WSL2, start the loopback backend from `backend/`:
 
 ```bash
-sudo env NETRCA_SIMULATION_ENABLED=true NETRCA_CORS_ORIGINS=http://localhost:3000 \
+sudo env NETRCA_SIMULATION_ENABLED=true NETRCA_FAULT_INJECTION_ENABLED=true NETRCA_CORS_ORIGINS=http://localhost:3000 \
   ~/netrca-venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
@@ -191,6 +191,10 @@ npm run dev -- --hostname 127.0.0.1
 ```
 
 Open `http://localhost:3000`, select **Topology**, and use the controlled Start, Connectivity, Reset, and Stop actions. Always stop the lab before closing the Ubuntu backend. See the [Mininet lab guide](docs/guides/mininet-lab.md#operate-the-lab-from-the-dashboard) for safety and cleanup details.
+
+After starting the lab, open **Evidence** and select **Capture live snapshot** to display timestamped interface counters and link states. The bounded probe measures one approved host path and reports packet loss and average latency. These observations are explicitly ephemeral and are not stored in PostgreSQL by the dashboard panel.
+
+For a controlled failure demonstration, enable fault injection only in the local Ubuntu lab, open **Fault Lab**, and choose from the validated live interfaces or links. The dashboard exposes bounded parameters, one active fault, explicit recovery, and post-fault evidence capture; it does not accept arbitrary network commands or external targets.
 
 ## Standard local setup
 

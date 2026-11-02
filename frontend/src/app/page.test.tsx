@@ -6,8 +6,9 @@ const api = vi.hoisted(() => ({
   getApiHealth: vi.fn(), getNetworkStatus: vi.fn(), getTopology: vi.fn(), getMonitoring: vi.fn(),
   getPage: vi.fn(), getIncident: vi.fn(), getIncidentRca: vi.fn(), getIncidentImpact: vi.fn(),
   getTopologyGraph: vi.fn(), getIncidentTopologyContext: vi.fn(),
+  getFaultTypes: vi.fn(), getFaults: vi.fn(), injectFault: vi.fn(), recoverFault: vi.fn(), resetFaults: vi.fn(),
   runIncidentRca: vi.fn(), runIncidentImpact: vi.fn(), correlateEvidence: vi.fn(), generateIncidentExplanation: vi.fn(),
-  startNetwork: vi.fn(), stopNetwork: vi.fn(), resetNetwork: vi.fn(), testNetworkConnectivity: vi.fn(),
+  startNetwork: vi.fn(), stopNetwork: vi.fn(), resetNetwork: vi.fn(), testNetworkConnectivity: vi.fn(), probeNetwork: vi.fn(),
 }));
 vi.mock("@/lib/api", () => api);
 
@@ -19,6 +20,8 @@ function healthyResponses() {
   api.getTopology.mockResolvedValue({ data: { nodes: [{ id: "d1", name: "h1", device_type: "HOST", state: "PRESENT" }], links: [] } });
   api.getMonitoring.mockResolvedValue({ data: { observed_at: "2026-10-15T10:00:00Z", network_state: "RUNNING", collection_status: "COMPLETE", devices: [], links: [], errors: [] } });
   api.getTopologyGraph.mockResolvedValue({ data: { directed: false, semantics: "PHYSICAL_TOPOLOGY", connected: true, components: [["d1"]], devices: [{ id: "d1", name: "h1", device_type: "HOST", status: "PRESENT" }], links: [] } });
+  api.getFaultTypes.mockResolvedValue({ data: ["INTERFACE_FAILURE", "LINK_FAILURE", "PACKET_LOSS", "HIGH_LATENCY"] });
+  api.getFaults.mockResolvedValue({ data: [], pagination: { page: 1, limit: 100, total: 0, pages: 0 } });
   api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [] : [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } }));
 }
 
@@ -43,6 +46,47 @@ test("starts the controlled lab and refreshes the live topology", async () => {
   fireEvent.click(start);
   await waitFor(() => expect(api.startNetwork).toHaveBeenCalledWith(expect.any(AbortSignal)));
   await waitFor(() => expect(api.getTopologyGraph).toHaveBeenCalledWith("live", expect.any(AbortSignal)));
+});
+
+test("captures an ephemeral snapshot and runs a bounded live probe", async () => {
+  healthyResponses();
+  const monitoring = {
+    observed_at: "2026-11-02T10:00:00Z", topology_name: "netrca_lab_v1", network_state: "RUNNING", collection_status: "COMPLETE", counter_unit: "bytes_and_packets", errors: [], links: [],
+    devices: [
+      { name: "h1", device_type: "HOST", interfaces: [{ name: "h1-eth0", status: "UP", rx_bytes: 10, tx_bytes: 20, rx_errors: 0, tx_errors: 0 }] },
+      { name: "h2", device_type: "HOST", interfaces: [{ name: "h2-eth0", status: "UP", rx_bytes: 20, tx_bytes: 10, rx_errors: 0, tx_errors: 0 }] },
+    ],
+  };
+  api.getMonitoring.mockResolvedValue({ data: monitoring });
+  api.probeNetwork.mockResolvedValue({ data: { observed_at: "2026-11-02T10:01:00Z", source: "h1", destination: "h2", packets_sent: 2, packets_received: 2, packet_loss_percent: 0, latency_ms: 0.02, status: "REACHABLE" } });
+  render(<Home />);
+  expect(await screen.findByText("API connected")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Evidence" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Capture live snapshot" }));
+  await waitFor(() => expect(api.getMonitoring).toHaveBeenCalledWith(expect.any(AbortSignal)));
+  fireEvent.click(await screen.findByRole("button", { name: "Run bounded probe" }));
+  await waitFor(() => expect(api.probeNetwork).toHaveBeenCalledWith("h1", "h2", expect.any(AbortSignal)));
+  expect(await screen.findByText(/h1 → h2: REACHABLE/)).toBeInTheDocument();
+});
+
+test("injects a controlled fault using only targets from the live snapshot", async () => {
+  healthyResponses();
+  const monitoring = {
+    observed_at: "2026-11-02T10:00:00Z", topology_name: "netrca_lab_v1", network_state: "RUNNING", collection_status: "COMPLETE", errors: [],
+    devices: [{ name: "h1", device_type: "HOST", interfaces: [{ name: "h1-eth0", status: "UP", rx_errors: 0, tx_errors: 0 }] }],
+    links: [{ source: "h1", destination: "s1", status: "UP" }],
+  };
+  api.getMonitoring.mockResolvedValue({ data: monitoring });
+  api.injectFault.mockResolvedValue({ data: { id: "fault-1", status: "ACTIVE" } });
+  render(<Home />);
+  fireEvent.click(await screen.findByRole("button", { name: "Fault Lab" }));
+  expect(await screen.findByText("Controlled fault and observable failure")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Fault type"), { target: { value: "PACKET_LOSS" } });
+  fireEvent.click(screen.getByRole("button", { name: "Inject controlled fault" }));
+  await waitFor(() => expect(api.injectFault).toHaveBeenCalledWith({
+    fault_type: "PACKET_LOSS", device: "h1", interface: "h1-eth0", packet_loss_percent: 50,
+    duration_seconds: 30, severity: "HIGH",
+  }, expect.any(AbortSignal)));
 });
 
 test("surfaces backend failures without replacing them with demonstration data", async () => {

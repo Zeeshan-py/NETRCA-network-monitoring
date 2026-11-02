@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
+import { ApiError, apiRequest, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -91,6 +91,46 @@ test("preserves a completed disconnected-host measurement returned with 503", as
     json: async () => ({ success: true, data: { connected: false, hosts: ["h1", "h2", "server1"], packet_loss_percent: 50 } }),
   }));
   await expect(testNetworkConnectivity()).resolves.toMatchObject({ data: { connected: false, packet_loss_percent: 50 } });
+});
+
+test("runs only the bounded local monitoring probe contract", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: { status: "REACHABLE" } }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await probeNetwork("h1", "server1");
+  const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(url).toBe("http://localhost:8000/api/v1/network/monitoring/probe");
+  expect(request.method).toBe("POST");
+  expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  expect(JSON.parse(String(request.body))).toEqual({ source: "h1", destination: "server1", count: 2, timeout_seconds: 2 });
+});
+
+test("uses protected bounded fault lifecycle requests", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const pagination = { page: 1, limit: 100, total: 0, pages: 0 };
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true, data: [], pagination }) })
+    .mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await getFaults();
+  await injectFault({ fault_type: "PACKET_LOSS", device: "h1", interface: "h1-eth0", packet_loss_percent: 50, duration_seconds: 30, severity: "HIGH" });
+  await recoverFault("fault-id");
+  await resetFaults();
+  expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+    "http://localhost:8000/api/v1/faults?page=1&limit=100",
+    "http://localhost:8000/api/v1/faults/inject",
+    "http://localhost:8000/api/v1/faults/fault-id/recover",
+    "http://localhost:8000/api/v1/faults/reset",
+  ]);
+  expect(new Headers(fetchMock.mock.calls[0][1].headers).has("X-NetRCA-Local-Control")).toBe(false);
+  for (const [, request] of fetchMock.mock.calls.slice(1)) {
+    expect(request.method).toBe("POST");
+    expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  }
+  expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({
+    fault_type: "PACKET_LOSS", device: "h1", interface: "h1-eth0", packet_loss_percent: 50,
+    duration_seconds: 30, severity: "HIGH",
+  });
 });
 
 test("requests live and stored graph sources separately without mixing them", async () => {

@@ -36,6 +36,17 @@ unknown process.
 For a live lab demonstration, do not use the synthetic presentation launcher.
 Follow the two-terminal workflow in the [Mininet lab guide](../guides/mininet-lab.md#operate-the-lab-from-the-dashboard): run the loopback FastAPI backend inside Ubuntu WSL2 with simulation enabled, then run the frontend from PowerShell with presentation mode disabled. Open **Topology**, start the lab, show the five-node live graph, run the connectivity test, and stop the lab before closing the backend.
 
+For live evidence, open **Evidence**, select **Capture live snapshot**, explain
+the timestamped cumulative interface counters and link states, then run one
+bounded known-host probe. State clearly that this panel is an ephemeral runtime
+observation and does not write to the stored evidence tables shown below it.
+
+For the controlled failure demonstration, open **Fault Lab**, refresh the safe
+targets, inject one 30-second interface failure, and capture the post-fault
+evidence. Recover the active fault, capture evidence again to show restoration,
+then stop the lab. State that an injected lab condition is not automatically an
+anomaly or RCA conclusion.
+
 Keep the synthetic launcher available as the presentation fallback if Ubuntu,
 Open vSwitch, or Mininet is unavailable on the classroom machine.
 

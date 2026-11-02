@@ -9,6 +9,8 @@ This directory is the central index for NetRCA implementation, verification, and
 | Semester 1 | Scope freeze and verified baseline | [Semester Phase 1 baseline](SEMESTER_PHASE1_BASELINE.md) |
 | Semester 2 | Unified network scenario model | [Semester Phase 2 report](SEMESTER_PHASE2_UNIFIED_SCENARIO.md) |
 | Semester 3 | Network lifecycle and live visualization | [Semester Phase 3 report](SEMESTER_PHASE3_NETWORK_LIFECYCLE.md) |
+| Semester 4 | Evidence collection demonstration | [Semester Phase 4 report](SEMESTER_PHASE4_EVIDENCE_COLLECTION.md) |
+| Semester 5 | Controlled fault and observable failure | [Semester Phase 5 report](SEMESTER_PHASE5_CONTROLLED_FAULT.md) |
 
 ## Original implementation phases
 

@@ -63,3 +63,19 @@ sudo env NETRCA_RUN_MININET_TESTS=1 ~/netrca-venv/bin/python -m pytest -q --tb=s
 
 All commands assume the current directory is `backend/`. See
 [Phase 5 report](../reports/PHASE5_REPORT.md) for verified results and limitations.
+
+## Semester dashboard demonstration
+
+The dashboard now exposes these existing read-only observations on the
+**Evidence** page. Start the canonical lab from **Topology**, then select
+**Capture live snapshot**. The panel shows the observation timestamp, collection
+status, cumulative byte/packet counters, interface errors, explicit unavailable
+values, and observed link state. It is labeled **Ephemeral Mininet observation**:
+capturing it does not call the persistence pipeline or write to PostgreSQL.
+
+After a snapshot, the bounded probe selectors contain only HOST and SERVER names
+reported by that snapshot. **Run bounded probe** sends two packets between the
+selected known hosts and displays measured packet counts, loss, and average
+latency. The result is one route observation, not a device uptime or historical
+availability claim. Presentation mode hides the live actions and labels its
+populated observation as synthetic.
