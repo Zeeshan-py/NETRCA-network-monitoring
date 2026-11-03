@@ -10,7 +10,7 @@ import {
   testNetworkConnectivity, type Connectivity, type CorrelationRun, type DetectionRun, type EvidenceCollectionResult, type EvidenceRecord,
   type FaultRecord, type FaultRequest, type FaultType,
   type GraphSource, type GraphSummary, type Incident, type IncidentDetail, type IncidentTopologyContext, type Monitoring,
-  type NetworkStatus, type Page, type ProbeReading, type Topology,
+  type NetworkStatus, type Page, type ProbeReading, type RcaRun, type Topology,
 } from "@/lib/api";
 import { TopologyExplorer, type TopologySelection } from "@/components/topology-explorer";
 import { TopologyEvidence } from "@/components/topology-evidence";
@@ -19,9 +19,10 @@ import { LiveEvidenceCapture } from "@/components/live-evidence-capture";
 import { FaultLab } from "@/components/fault-lab";
 import { DetectionLab } from "@/components/detection-lab";
 import { CorrelationLab } from "@/components/correlation-lab";
+import { RcaLab } from "@/components/rca-lab";
 import { presentationModeEnabled } from "@/lib/presentation-demo";
 
-type Section = "Overview" | "Topology" | "Evidence" | "Fault Lab" | "Detection Lab" | "Correlation Lab" | "Anomalies" | "Incidents" | "Demo Brief";
+type Section = "Overview" | "Topology" | "Evidence" | "Fault Lab" | "Detection Lab" | "Correlation Lab" | "RCA Lab" | "Anomalies" | "Incidents" | "Demo Brief";
 type ViewData = {
   api: boolean;
   network?: NetworkStatus;
@@ -35,14 +36,14 @@ type ViewData = {
 };
 type IncidentAnalysis = {
   detail?: IncidentDetail;
-  rca?: Record<string, unknown>;
+  rca?: RcaRun;
   rcaError?: string;
   impact?: Record<string, unknown>;
   impactError?: string;
 };
 type PageResource = "metrics" | "logs" | "events" | "anomalies" | "incidents";
 
-const sections: Section[] = ["Overview", "Topology", "Evidence", "Fault Lab", "Detection Lab", "Correlation Lab", "Anomalies", "Incidents", "Demo Brief"];
+const sections: Section[] = ["Overview", "Topology", "Evidence", "Fault Lab", "Detection Lab", "Correlation Lab", "RCA Lab", "Anomalies", "Incidents", "Demo Brief"];
 const presentationDemo = presentationModeEnabled();
 
 function message(error: unknown) {
@@ -118,12 +119,14 @@ export function Dashboard() {
   const [correlationResult, setCorrelationResult] = useState<CorrelationRun>();
   const [correlationRunning, setCorrelationRunning] = useState(false);
   const [correlationError, setCorrelationError] = useState<string>();
+  const [rcaRunning, setRcaRunning] = useState(false);
   const controllerRef = useRef<AbortController | undefined>(undefined);
   const networkControllerRef = useRef<AbortController | undefined>(undefined);
   const evidenceControllerRef = useRef<AbortController | undefined>(undefined);
   const faultControllerRef = useRef<AbortController | undefined>(undefined);
   const detectionControllerRef = useRef<AbortController | undefined>(undefined);
   const correlationControllerRef = useRef<AbortController | undefined>(undefined);
+  const rcaControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentControllerRef = useRef<AbortController | undefined>(undefined);
   const incidentTopologyControllerRef = useRef<AbortController | undefined>(undefined);
   const selectedIncidentIdRef = useRef<string | undefined>(undefined);
@@ -424,6 +427,33 @@ export function Dashboard() {
     }
   }
 
+  async function runRcaInvestigation(incidentId: string) {
+    rcaControllerRef.current?.abort();
+    const controller = new AbortController();
+    rcaControllerRef.current = controller;
+    setRcaRunning(true);
+    setActionMessage(undefined);
+    setActionError(undefined);
+    setAnalysis((current) => ({ ...current, rcaError: undefined }));
+    try {
+      const response = await runIncidentRca(incidentId, controller.signal);
+      if (controller.signal.aborted || selectedIncidentIdRef.current !== incidentId) return;
+      setAnalysis((current) => ({ ...current, rca: response.data, rcaError: undefined }));
+      setActionMessage(presentationDemo ? "Synthetic deterministic RCA replayed; no remote write occurred." : "Deterministic RCA completed and the evidence-backed result was stored.");
+    } catch (error) {
+      if (!controller.signal.aborted && selectedIncidentIdRef.current === incidentId) {
+        const detail = message(error);
+        setAnalysis((current) => ({ ...current, rcaError: detail }));
+        setActionError(detail);
+      }
+    } finally {
+      if (rcaControllerRef.current === controller) {
+        rcaControllerRef.current = undefined;
+        setRcaRunning(false);
+      }
+    }
+  }
+
   const loadIncident = useCallback(async (id: string) => {
     incidentControllerRef.current?.abort();
     incidentTopologyControllerRef.current?.abort();
@@ -624,6 +654,8 @@ export function Dashboard() {
 
         {section === "Correlation Lab" && <CorrelationLab events={events} anomalies={anomalyRecords} result={correlationResult} running={correlationRunning} error={correlationError} presentationMode={presentationDemo} onCorrelate={(eventIds, anomalyIds) => void runCorrelation(eventIds, anomalyIds)} onRefresh={() => void refresh()} onOpenIncident={(id) => { setSection("Incidents"); void loadIncident(id); }} />}
 
+        {section === "RCA Lab" && <RcaLab incidents={incidents} selectedId={selectedId} detail={analysis.detail} result={analysis.rca} loading={incidentLoading} running={rcaRunning} error={incidentError ?? analysis.rcaError} presentationMode={presentationDemo} onSelect={(id) => void loadIncident(id)} onRun={(id) => void runRcaInvestigation(id)} onOpenTopology={() => void openIncidentTopology()} />}
+
         {section === "Anomalies" && <section className="panel dashboard-content"><PanelHeading eyebrow="PHASE 8" title="Detected anomalies" /><State loading={loading} error={errors.anomalies} empty={!anomalyRecords.length}><RecordTable records={anomalyRecords} /><PageControls page={data.anomalies?.pagination} loading={pageLoading.anomalies} onPage={(direction) => void changePage("anomalies", direction)} /></State></section>}
 
         {section === "Incidents" && <div className="dashboard-content incident-layout">
@@ -641,8 +673,8 @@ export function Dashboard() {
                 <RecordTable records={[...analysis.detail.events.map((item) => ({ ...item, evidence_kind: "EVENT" })), ...analysis.detail.anomalies.map((item) => ({ ...item, evidence_kind: "ANOMALY" }))]} />
                 {incidentTopologyError && <p className="state-message error-message" role="alert">{incidentTopologyError}</p>}
                 <button className="button secondary" disabled={incidentTopologyLoading} onClick={() => void openIncidentTopology()}>{incidentTopologyLoading ? "Loading stored topology context…" : "Show evidence in stored topology"}</button>
-                <div className="action-row"><button className="button primary" onClick={() => void performAction("RCA run completed.", () => runIncidentRca(selectedId))}>Run deterministic RCA</button><button className="button secondary" onClick={() => void performAction("Impact analysis completed.", () => runIncidentImpact(selectedId))}>Run impact analysis</button></div>
-                <AnalysisPanel title="Root-cause analysis" value={analysis.rca} error={analysis.rcaError} emptyLabel="No current RCA result is available. Run analysis if enabled on the backend." />
+                <div className="action-row"><button className="button primary" onClick={() => setSection("RCA Lab")}>Open RCA Lab</button><button className="button secondary" onClick={() => void performAction("Impact analysis completed.", () => runIncidentImpact(selectedId))}>Run impact analysis</button></div>
+                <AnalysisPanel title="Root-cause analysis" value={analysis.rca as unknown as Record<string, unknown> | undefined} error={analysis.rcaError} emptyLabel="No current RCA result is available. Run analysis if enabled on the backend." />
                 <AnalysisPanel title="Impact and failure chain" value={analysis.impact} error={analysis.impactError} emptyLabel="No impact result is available. Run analysis after RCA if enabled on the backend." />
                 <section className="analysis-block"><h3>Evidence-grounded explanation</h3><p className="muted">{presentationDemo ? "This action replays a static, evidence-linked explanation for the synthetic scenario. It never calls Gemini." : "This explicit action sends the current validated incident context to the configured backend explanation provider. It may call Gemini if enabled. Nothing is sent automatically when you open or refresh an incident."}</p><button className="button secondary" onClick={() => void generateIncidentExplanation(selectedId).then((response) => { setExplanation(response.data); setActionError(undefined); setActionMessage(presentationDemo ? "Static presentation explanation loaded; no external model was called." : "Explanation generated from the currently validated incident evidence."); }).catch((error) => { setActionError(message(error)); setActionMessage(undefined); })}>{presentationDemo ? "Show presentation explanation" : "Generate explanation"}</button>{explanation && <ExplanationPanel value={explanation} />}</section>
               </>}

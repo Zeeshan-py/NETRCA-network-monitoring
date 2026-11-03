@@ -60,6 +60,13 @@ enough. Run correlation, show the `SAME_LINK` membership reason, then open the
 incident. In presentation mode this is a synthetic browser replay; in real mode
 it requires the explicit correlation write flag and database.
 
+For root-cause investigation, open **RCA Lab**, choose the correlated incident,
+and run the explicit analysis action. Show the leading candidate, its target,
+integer rule contributions, supporting and contradictory evidence, and run
+limitations. State that the score is uncalibrated rule points rather than a
+probability, and that `INCONCLUSIVE` is a valid result. Presentation mode replays
+a static browser fixture; real mode requires the RCA write flag and database.
+
 Keep the synthetic launcher available as the presentation fallback if Ubuntu,
 Open vSwitch, or Mininet is unavailable on the classroom machine.
 

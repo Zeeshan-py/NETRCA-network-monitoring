@@ -141,6 +141,43 @@ export type DetectionRun = { items: DetectionResult[]; anomalies_detected: numbe
 export type CorrelationEvidence = { kind: "EVENT" | "ANOMALY"; id: string; reason: string };
 export type CorrelationIncident = { incident_id: string; created: boolean; evidence: CorrelationEvidence[] };
 export type CorrelationRun = { incidents: CorrelationIncident[]; skipped_ids: string[]; created: number; attached: number };
+export type RcaEvidenceReference = {
+  source_type: "EVENT" | "ANOMALY" | "TOPOLOGY";
+  source_id: string;
+  timestamp?: string | null;
+  metric_id?: string | null;
+  reason: string;
+};
+export type RcaRuleContribution = { rule: string; points: number; evidence: RcaEvidenceReference[] };
+export type RcaCandidate = {
+  cause_type: "LINK_FAILURE" | "INTERFACE_FAILURE" | "DEVICE_UNAVAILABLE";
+  target_kind: "LINK" | "DEVICE";
+  target_id: string;
+  score: number;
+  score_kind: "UNCALIBRATED_RULE_POINTS";
+  explanation: string;
+  contributions: RcaRuleContribution[];
+  supporting_evidence: RcaEvidenceReference[];
+  contradictory_evidence: RcaEvidenceReference[];
+  limitations: string[];
+};
+export type RcaRun = {
+  id: string;
+  incident_id: string;
+  analysis_version: string;
+  input_fingerprint: string;
+  status: "CANDIDATES" | "INCONCLUSIVE";
+  result: {
+    incident_id: string;
+    status: "CANDIDATES" | "INCONCLUSIVE";
+    candidates: RcaCandidate[];
+    limitations: string[];
+    evidence_count: number;
+    analysis_version: string;
+  };
+  created_at: string;
+  last_analyzed_at: string;
+};
 export type Page<T> = { data: T[]; pagination: { page: number; limit: number; total: number; pages: number } };
 export type EvidenceRecord = Record<string, unknown> & { id: string; timestamp?: string; detected_at?: string; severity?: string; event_type?: string; metric_type?: string; message?: string; name?: string; status?: string };
 export type Incident = { id: string; title: string; description?: string | null; severity: string; status: string; start_time: string; end_time?: string | null };
@@ -372,10 +409,10 @@ export async function getIncident(id: string, signal?: AbortSignal) {
   return payload.data;
 }
 export async function getIncidentRca(id: string, signal?: AbortSignal) {
-  return apiRequest<Envelope<Record<string, unknown>>>(`/incidents/${encodeURIComponent(id)}/root-causes`, { signal });
+  return apiRequest<Envelope<RcaRun>>(`/incidents/${encodeURIComponent(id)}/root-causes`, { signal });
 }
 export async function runIncidentRca(id: string, signal?: AbortSignal) {
-  return apiRequest<Envelope<Record<string, unknown>>>(`/incidents/${encodeURIComponent(id)}/root-cause/analyze`, { method: "POST", localControl: true, signal });
+  return apiRequest<Envelope<RcaRun>>(`/incidents/${encodeURIComponent(id)}/root-cause/analyze`, { method: "POST", localControl: true, signal });
 }
 export async function getIncidentImpact(id: string, signal?: AbortSignal) {
   return apiRequest<Envelope<Record<string, unknown>>>(`/incidents/${encodeURIComponent(id)}/impact`, { signal });

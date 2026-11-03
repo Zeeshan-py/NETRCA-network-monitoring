@@ -26,8 +26,10 @@ describe("presentation fixture", () => {
     const incidents = presentationDemoResponse("/incidents?page=1&limit=20") as { data: Array<{ id: string }>; pagination: { total: number } };
     expect(incidents.pagination.total).toBe(1);
     const id = incidents.data[0].id;
-    const rca = presentationDemoResponse(`/incidents/${id}/root-causes`) as { data: { result: { candidates: Array<{ supporting_evidence: unknown[] }> } } };
+    const rca = presentationDemoResponse(`/incidents/${id}/root-causes`) as { data: { status: string; result: { candidates: Array<{ contributions: unknown[]; supporting_evidence: unknown[] }> } } };
     const explanation = presentationDemoResponse(`/ai/incidents/${id}/explain`, "POST") as { data: { provider: string; summary: Array<{ evidence_references: unknown[] }> } };
+    expect(rca.data.status).toBe("CANDIDATES");
+    expect(rca.data.result.candidates[0].contributions.length).toBeGreaterThan(0);
     expect(rca.data.result.candidates[0].supporting_evidence.length).toBeGreaterThan(0);
     expect(explanation.data.provider).toBe("STATIC_PRESENTATION_FIXTURE");
     expect(explanation.data.summary[0].evidence_references.length).toBeGreaterThan(0);

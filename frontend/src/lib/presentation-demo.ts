@@ -104,8 +104,14 @@ const incidentDetail: IncidentDetail = { ...incident, events, anomalies };
 
 const rca = {
   id: "d61ae586-a513-5b7d-9a36-c418d95a78b9",
-  status: "COMPLETED",
+  incident_id: IDs.incident,
+  analysis_version: "RULES_V1",
+  input_fingerprint: "synthetic-presentation-fixture",
+  status: "CANDIDATES",
+  created_at: "2026-10-31T09:42:08Z",
+  last_analyzed_at: "2026-10-31T09:42:08Z",
   result: {
+    incident_id: IDs.incident,
     status: "CANDIDATES",
     candidates: [{
       cause_type: "LINK_FAILURE",
@@ -114,11 +120,17 @@ const rca = {
       score: 20,
       score_kind: "UNCALIBRATED_RULE_POINTS",
       explanation: "The stored down uplink is the earliest directly referenced failure and is supported by packet-loss evidence.",
+      contributions: [
+        { rule: "DIRECT_FAILURE", points: 4, evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "INITIAL_FAILURE" }] },
+        { rule: "INDEPENDENT_DIRECT_EVIDENCE", points: 4, evidence: [{ source_type: "ANOMALY", source_id: IDs.anomaly, timestamp: "2026-10-31T09:42:02Z", metric_id: IDs.lossMetric, reason: "PACKET_LOSS" }] },
+        { rule: "LATER_RELATED_SYMPTOM", points: 2, evidence: [{ source_type: "EVENT", source_id: IDs.timeoutEvent, timestamp: "2026-10-31T09:42:03Z", reason: "DOWNSTREAM_SYMPTOM" }] },
+      ],
       supporting_evidence: [
         { source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "INITIAL_FAILURE" },
         { source_type: "ANOMALY", source_id: IDs.anomaly, timestamp: "2026-10-31T09:42:02Z", reason: "PACKET_LOSS" },
       ],
       contradictory_evidence: [],
+      limitations: ["SYNTHETIC_PRESENTATION_FIXTURE", "RULE_SCORE_IS_NOT_A_PROBABILITY"],
     }],
     limitations: ["SYNTHETIC_PRESENTATION_FIXTURE", "RULE_SCORE_IS_NOT_A_PROBABILITY"],
     evidence_count: 4,

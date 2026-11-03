@@ -369,6 +369,7 @@ The project has separate Windows, PostgreSQL, and WSL2/Mininet validation paths.
 
 All implementation and verification reports are consolidated in the [phase report library](docs/reports/INDEX.md). Key reports include:
 
+- [Semester Phase 8 deterministic RCA investigation](docs/reports/SEMESTER_PHASE8_RCA_INVESTIGATION.md)
 - [Phase 3 network report](docs/reports/PHASE3_REPORT.md)
 - [Phase 8 anomaly report](docs/reports/PHASE8_REPORT.md)
 - [Phase 9 correlation report](docs/reports/PHASE9_REPORT.md)

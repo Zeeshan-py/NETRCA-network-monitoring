@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
+import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, runIncidentRca, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -163,6 +163,18 @@ test("submits only explicitly selected evidence to protected correlation", async
   expect(request.method).toBe("POST");
   expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
   expect(JSON.parse(String(request.body))).toEqual({ event_ids: ["event-1"], anomaly_ids: ["anomaly-1"] });
+});
+
+test("runs deterministic RCA only through the protected incident action", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await runIncidentRca("incident/unsafe");
+  const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(url).toBe("http://localhost:8000/api/v1/incidents/incident%2Funsafe/root-cause/analyze");
+  expect(request.method).toBe("POST");
+  expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  expect(request.body).toBeUndefined();
 });
 
 test("requests live and stored graph sources separately without mixing them", async () => {

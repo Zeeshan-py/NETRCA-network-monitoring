@@ -122,6 +122,25 @@ test("correlates only selected stored evidence and displays grounded reasons", a
   expect(await screen.findByText(/SAME LINK/i)).toBeInTheDocument();
 });
 
+test("runs deterministic RCA for the selected incident and exposes rule provenance", async () => {
+  healthyResponses();
+  const incident = { id: "incident-1", title: "Inter-switch outage", severity: "HIGH", status: "DETECTED", start_time: "2026-11-03T10:00:00Z" };
+  const detail = { ...incident, description: "Stored evidence", events: [{ id: "event-1", event_type: "LINK_FAILURE" }], anomalies: [{ id: "anomaly-1", name: "Packet loss" }] };
+  const rca = { id: "run-1", incident_id: incident.id, analysis_version: "RULES_V1", input_fingerprint: "hash", status: "CANDIDATES", created_at: incident.start_time, last_analyzed_at: incident.start_time, result: { incident_id: incident.id, status: "CANDIDATES", evidence_count: 2, analysis_version: "RULES_V1", limitations: [], candidates: [{ cause_type: "LINK_FAILURE", target_kind: "LINK", target_id: "link-1", score: 4, score_kind: "UNCALIBRATED_RULE_POINTS", explanation: "Direct failure evidence", contributions: [{ rule: "DIRECT_FAILURE", points: 4, evidence: [{ source_type: "EVENT", source_id: "event-1", reason: "DIRECT_FAILURE" }] }], supporting_evidence: [{ source_type: "EVENT", source_id: "event-1", reason: "DIRECT_FAILURE" }], contradictory_evidence: [], limitations: [] }] } };
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [incident] : [], pagination: { page: 1, limit: 20, total: resource === "incidents" ? 1 : 0, pages: resource === "incidents" ? 1 : 0 } }));
+  api.getIncident.mockResolvedValue(detail);
+  api.getIncidentRca.mockRejectedValue(new Error("No current RCA result"));
+  api.getIncidentImpact.mockRejectedValue(new Error("No current impact result"));
+  api.runIncidentRca.mockResolvedValue({ data: rca });
+  render(<Home />);
+  fireEvent.click(await screen.findByRole("button", { name: "RCA Lab" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Inter-switch outage/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Run deterministic RCA" }));
+  await waitFor(() => expect(api.runIncidentRca).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal)));
+  expect(await screen.findByText("RANK 1")).toBeInTheDocument();
+  expect(screen.getByText(/not probability or confidence/i)).toBeInTheDocument();
+});
+
 test("surfaces backend failures without replacing them with demonstration data", async () => {
   healthyResponses();
   api.getPage.mockImplementation(async (resource: string) => {
