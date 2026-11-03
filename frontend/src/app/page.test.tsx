@@ -141,6 +141,27 @@ test("runs deterministic RCA for the selected incident and exposes rule provenan
   expect(screen.getByText(/not probability or confidence/i)).toBeInTheDocument();
 });
 
+test("runs impact analysis for an incident with RCA and distinguishes observed from potential exposure", async () => {
+  healthyResponses();
+  const incident = { id: "incident-1", title: "Inter-switch outage", severity: "HIGH", status: "DETECTED", start_time: "2026-11-03T10:00:00Z" };
+  const detail = { ...incident, events: [{ id: "event-1" }], anomalies: [{ id: "anomaly-1" }] };
+  const rca = { id: "rca-1", incident_id: incident.id, analysis_version: "RULES_V1", input_fingerprint: "hash", status: "CANDIDATES", created_at: incident.start_time, last_analyzed_at: incident.start_time, result: { incident_id: incident.id, status: "CANDIDATES", evidence_count: 2, analysis_version: "RULES_V1", limitations: [], candidates: [] } };
+  const impact = { id: "impact-1", rca_run_id: rca.id, analysis_version: "IMPACT_RULES_V1", input_fingerprint: "input", topology_fingerprint: "topology", status: "ASSESSED", created_at: incident.start_time, last_analyzed_at: incident.start_time, result: { incident_id: incident.id, rca_run_id: rca.id, status: "ASSESSED", candidate_target_kind: "LINK", candidate_target_id: "link-1", affected_devices: 1, affected_links: 1, affected_services: 0, user_application_impact: "UNKNOWN_UNVERIFIED", topology_input: {}, limitations: [], analysis_version: "IMPACT_RULES_V1", entities: [{ kind: "LINK", id: "link-1", classification: "OBSERVED", explanation: "Direct evidence", evidence: [{ source_type: "EVENT", source_id: "event-1", reason: "DIRECT_FAILURE" }] }, { kind: "DEVICE", id: "device-1", classification: "POTENTIAL", explanation: "Endpoint exposure", evidence: [{ source_type: "EVENT", source_id: "event-1", reason: "DIRECT_FAILURE" }] }], chain: [{ step: 1, source_kind: "LINK", source_id: "link-1", target_kind: "DEVICE", target_id: "device-1", relationship: "LINK_ENDPOINT", classification: "POTENTIAL", explanation: "Physical endpoint", evidence: [{ source_type: "EVENT", source_id: "event-1", reason: "DIRECT_FAILURE" }] }] } };
+  api.getPage.mockImplementation(async (resource: string) => ({ data: resource === "incidents" ? [incident] : [], pagination: { page: 1, limit: 20, total: resource === "incidents" ? 1 : 0, pages: resource === "incidents" ? 1 : 0 } }));
+  api.getIncident.mockResolvedValue(detail);
+  api.getIncidentRca.mockResolvedValue({ data: rca });
+  api.getIncidentImpact.mockRejectedValue(new Error("No current impact result"));
+  api.runIncidentImpact.mockResolvedValue({ data: impact });
+  render(<Home />);
+  fireEvent.click(await screen.findByRole("button", { name: "Impact Lab" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Inter-switch outage/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Run impact analysis" }));
+  await waitFor(() => expect(api.runIncidentImpact).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal)));
+  expect(await screen.findByText("OBSERVED")).toBeInTheDocument();
+  expect(screen.getAllByText("POTENTIAL").length).toBeGreaterThan(0);
+  expect(screen.getByText(/not confirmed failure/i)).toBeInTheDocument();
+});
+
 test("surfaces backend failures without replacing them with demonstration data", async () => {
   healthyResponses();
   api.getPage.mockImplementation(async (resource: string) => {

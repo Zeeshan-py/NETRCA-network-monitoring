@@ -1,4 +1,4 @@
-import type { Envelope, GraphSummary, IncidentDetail, IncidentTopologyContext, Monitoring, NetworkStatus, Topology } from "@/lib/api";
+import type { Envelope, GraphSummary, ImpactRun, IncidentDetail, IncidentTopologyContext, Monitoring, NetworkStatus, Topology } from "@/lib/api";
 import labScenario from "../../../scenarios/netrca_lab_v1.json";
 
 export class PresentationDemoError extends Error {
@@ -22,6 +22,7 @@ function linkId(key: string) {
 
 const IDs = {
   switch1: nodeId("s1"),
+  switch2: nodeId("s2"),
   server: nodeId("server1"),
   failedLink: linkId("s1--s2"),
   lossMetric: "eddfd1ad-5b9c-5fae-a7c6-7dd2f3ffacc9",
@@ -29,6 +30,7 @@ const IDs = {
   timeoutEvent: "406bc67f-5e93-5d3b-a5a0-4e7398b889b6",
   anomaly: "f0b65b4f-a95d-5ec2-b42f-514c1a4bb1e5",
   incident: "738c7634-2a2b-58b9-beed-a62853c7b7d3",
+  service: "ae9169c9-80e3-53a5-a027-d61ce322937a",
 } as const;
 
 const observedAt = "2026-10-31T09:42:18Z";
@@ -138,26 +140,37 @@ const rca = {
   },
 };
 
-const impact = {
+const impact: ImpactRun = {
   id: "32d22e0a-b56b-5793-9fbb-122902d34e4b",
-  status: "COMPLETED",
+  rca_run_id: rca.id,
+  analysis_version: "IMPACT_RULES_V1",
+  input_fingerprint: "synthetic-presentation-impact-input",
+  topology_fingerprint: "synthetic-presentation-topology",
+  status: "ASSESSED",
+  created_at: "2026-10-31T09:42:09Z",
+  last_analyzed_at: "2026-10-31T09:42:09Z",
   result: {
+    incident_id: IDs.incident,
+    rca_run_id: rca.id,
     status: "ASSESSED",
     candidate_target_kind: "LINK",
     candidate_target_id: IDs.failedLink,
     entities: [
-      { kind: "LINK", id: IDs.failedLink, classification: "OBSERVED", explanation: "The s1-to-s2 link is directly observed as down." },
-      { kind: "DEVICE", id: IDs.server, classification: "POTENTIAL", explanation: "server1 is downstream of the failed inter-switch link and has timeout evidence." },
-      { kind: "SERVICE", id: "checkout-api", classification: "POTENTIAL", explanation: "Checkout requests timed out after the upstream failure." },
+      { kind: "LINK", id: IDs.failedLink, classification: "OBSERVED", evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "DIRECT_FAILURE" }], explanation: "The s1-to-s2 link is directly reported down by validated incident evidence." },
+      { kind: "DEVICE", id: IDs.switch1, classification: "POTENTIAL", evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "DIRECT_FAILURE" }], explanation: "s1 is a physical endpoint of the observed failed link." },
+      { kind: "DEVICE", id: IDs.switch2, classification: "POTENTIAL", evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "DIRECT_FAILURE" }], explanation: "s2 is a physical endpoint of the observed failed link." },
+      { kind: "SERVICE", id: IDs.service, classification: "POTENTIAL", evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "DIRECT_FAILURE" }], explanation: "The synthetic checkout service is mapped to an exposed endpoint; outage is not confirmed." },
     ],
     chain: [
-      { step: 1, source_kind: "LINK", source_id: IDs.failedLink, target_kind: "DEVICE", target_id: IDs.server, relationship: "DOWNSTREAM_PATH", classification: "POTENTIAL", explanation: "The canonical physical topology connects the failed inter-switch link to server1." },
-      { step: 2, source_kind: "DEVICE", source_id: IDs.server, target_kind: "SERVICE", target_id: "checkout-api", relationship: "HOSTS_SERVICE", classification: "POTENTIAL", explanation: "server1 hosts the affected checkout API in this synthetic evidence set." },
+      { step: 1, source_kind: "LINK", source_id: IDs.failedLink, target_kind: "DEVICE", target_id: IDs.switch1, relationship: "LINK_ENDPOINT", classification: "POTENTIAL", evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "DIRECT_FAILURE" }], explanation: "The canonical physical topology records s1 as an endpoint." },
+      { step: 1, source_kind: "LINK", source_id: IDs.failedLink, target_kind: "DEVICE", target_id: IDs.switch2, relationship: "LINK_ENDPOINT", classification: "POTENTIAL", evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "DIRECT_FAILURE" }], explanation: "The canonical physical topology records s2 as an endpoint." },
+      { step: 2, source_kind: "DEVICE", source_id: IDs.switch2, target_kind: "SERVICE", target_id: IDs.service, relationship: "HOSTS_SERVICE", classification: "POTENTIAL", evidence: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z", reason: "DIRECT_FAILURE" }], explanation: "The fixture maps the checkout service to s2; this is structural exposure only." },
     ],
-    affected_devices: 1,
+    affected_devices: 2,
     affected_links: 1,
     affected_services: 1,
-    user_application_impact: "POTENTIAL_CHECKOUT_DEGRADATION",
+    user_application_impact: "UNKNOWN_UNVERIFIED",
+    topology_input: { source: "SYNTHETIC_PRESENTATION_FIXTURE", hop_limit: 1 },
     limitations: ["SYNTHETIC_PRESENTATION_FIXTURE", "CUSTOMER_IMPACT_NOT_EXTERNALLY_CONFIRMED"],
     analysis_version: "IMPACT_RULES_V1",
   },

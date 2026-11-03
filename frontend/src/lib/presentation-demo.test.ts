@@ -31,6 +31,11 @@ describe("presentation fixture", () => {
     expect(rca.data.status).toBe("CANDIDATES");
     expect(rca.data.result.candidates[0].contributions.length).toBeGreaterThan(0);
     expect(rca.data.result.candidates[0].supporting_evidence.length).toBeGreaterThan(0);
+    const impact = presentationDemoResponse(`/incidents/${id}/impact`) as { data: { status: string; result: { entities: Array<{ classification: string; evidence: unknown[] }>; chain: Array<{ relationship: string; evidence: unknown[] }>; user_application_impact: string } } };
+    expect(impact.data.status).toBe("ASSESSED");
+    expect(impact.data.result.entities.some((entity) => entity.classification === "OBSERVED" && entity.evidence.length > 0)).toBe(true);
+    expect(impact.data.result.chain.every((edge) => ["LINK_ENDPOINT", "DEVICE_ADJACENCY", "HOSTS_SERVICE"].includes(edge.relationship) && edge.evidence.length > 0)).toBe(true);
+    expect(impact.data.result.user_application_impact).toBe("UNKNOWN_UNVERIFIED");
     expect(explanation.data.provider).toBe("STATIC_PRESENTATION_FIXTURE");
     expect(explanation.data.summary[0].evidence_references.length).toBeGreaterThan(0);
   });

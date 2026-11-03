@@ -178,6 +178,50 @@ export type RcaRun = {
   created_at: string;
   last_analyzed_at: string;
 };
+export type ImpactEntity = {
+  kind: "DEVICE" | "LINK" | "SERVICE";
+  id: string;
+  classification: "OBSERVED" | "POTENTIAL";
+  evidence: RcaEvidenceReference[];
+  explanation: string;
+};
+export type ImpactChainEdge = {
+  step: number;
+  source_kind: "DEVICE" | "LINK" | "SERVICE";
+  source_id: string;
+  target_kind: "DEVICE" | "LINK" | "SERVICE";
+  target_id: string;
+  relationship: "LINK_ENDPOINT" | "DEVICE_ADJACENCY" | "HOSTS_SERVICE";
+  classification: "POTENTIAL";
+  evidence: RcaEvidenceReference[];
+  explanation: string;
+};
+export type ImpactRun = {
+  id: string;
+  rca_run_id: string;
+  analysis_version: string;
+  input_fingerprint: string;
+  topology_fingerprint: string;
+  status: "ASSESSED" | "INCONCLUSIVE";
+  result: {
+    incident_id: string;
+    rca_run_id: string;
+    status: "ASSESSED" | "INCONCLUSIVE";
+    candidate_target_kind?: "DEVICE" | "LINK" | null;
+    candidate_target_id?: string | null;
+    entities: ImpactEntity[];
+    chain: ImpactChainEdge[];
+    affected_devices: number;
+    affected_links: number;
+    affected_services: number;
+    user_application_impact: "UNKNOWN_UNVERIFIED";
+    topology_input: Record<string, unknown>;
+    limitations: string[];
+    analysis_version: string;
+  };
+  created_at: string;
+  last_analyzed_at: string;
+};
 export type Page<T> = { data: T[]; pagination: { page: number; limit: number; total: number; pages: number } };
 export type EvidenceRecord = Record<string, unknown> & { id: string; timestamp?: string; detected_at?: string; severity?: string; event_type?: string; metric_type?: string; message?: string; name?: string; status?: string };
 export type Incident = { id: string; title: string; description?: string | null; severity: string; status: string; start_time: string; end_time?: string | null };
@@ -251,6 +295,9 @@ export async function apiRequest<T>(path: string, options: { signal?: AbortSigna
       CORRELATION_LIMIT: "The correlation window contains too many open incident anchors.",
       RCA_WRITES_DISABLED: "RCA runs are disabled by the backend configuration.",
       IMPACT_WRITES_DISABLED: "Impact analysis runs are disabled by the backend configuration.",
+      RCA_INPUT_INVALID: "The stored RCA input is stale or invalid. Re-run deterministic RCA before impact analysis.",
+      INVALID_STORED_ANALYSIS: "The stored analysis failed validation and cannot be used for impact analysis.",
+      ANALYSIS_LIMIT: "This incident contains too much evidence for one bounded analysis run.",
       DATABASE_UNAVAILABLE: "The database is unavailable. Check the backend database configuration.",
       GEMINI_DISABLED: "Gemini explanations are disabled by the backend configuration.",
       GEMINI_UNAVAILABLE: "The explanation provider is unavailable. Deterministic results remain available.",
@@ -415,10 +462,10 @@ export async function runIncidentRca(id: string, signal?: AbortSignal) {
   return apiRequest<Envelope<RcaRun>>(`/incidents/${encodeURIComponent(id)}/root-cause/analyze`, { method: "POST", localControl: true, signal });
 }
 export async function getIncidentImpact(id: string, signal?: AbortSignal) {
-  return apiRequest<Envelope<Record<string, unknown>>>(`/incidents/${encodeURIComponent(id)}/impact`, { signal });
+  return apiRequest<Envelope<ImpactRun>>(`/incidents/${encodeURIComponent(id)}/impact`, { signal });
 }
 export async function runIncidentImpact(id: string, signal?: AbortSignal) {
-  return apiRequest<Envelope<Record<string, unknown>>>(`/incidents/${encodeURIComponent(id)}/impact/analyze`, { method: "POST", localControl: true, signal });
+  return apiRequest<Envelope<ImpactRun>>(`/incidents/${encodeURIComponent(id)}/impact/analyze`, { method: "POST", localControl: true, signal });
 }
 export async function correlateEvidence(eventIds: string[], anomalyIds: string[], signal?: AbortSignal) {
   return apiRequest<Envelope<CorrelationRun>>("/events/correlate", { method: "POST", localControl: true, body: { event_ids: eventIds.slice(0, 100), anomaly_ids: anomalyIds.slice(0, Math.max(0, 100 - eventIds.length)) }, signal });

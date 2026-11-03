@@ -67,6 +67,13 @@ limitations. State that the score is uncalibrated rule points rather than a
 probability, and that `INCONCLUSIVE` is a valid result. Presentation mode replays
 a static browser fixture; real mode requires the RCA write flag and database.
 
+For impact analysis, open **Impact Lab**, choose the same incident, and run the
+explicit action only after RCA is available. Contrast directly evidenced
+`OBSERVED` components with one-hop `POTENTIAL` exposure, then follow the
+structural chain. Explain that step order is not measured chronology and that
+user/application impact remains unknown without incident-scoped observations.
+Presentation mode is a static replay; real mode requires the impact write flag.
+
 Keep the synthetic launcher available as the presentation fallback if Ubuntu,
 Open vSwitch, or Mininet is unavailable on the classroom machine.
 

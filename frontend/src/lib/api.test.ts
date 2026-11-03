@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, runIncidentRca, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
+import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, runIncidentImpact, runIncidentRca, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -33,8 +33,11 @@ test("falls back to stored topology only when the simulator is disabled", async 
 
 test("surfaces sanitized API validation and access-control errors", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({ success: false, error: { code: "RCA_WRITES_DISABLED", message: "RCA runs are disabled by the backend configuration." } }) }));
+  vi.stubGlobal("fetch", vi.fn()
+    .mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({ success: false, error: { code: "RCA_WRITES_DISABLED", message: "RCA runs are disabled by the backend configuration." } }) })
+    .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ success: false, error: { code: "RCA_INPUT_INVALID", message: "private detail" } }) }));
   await expect(apiRequest("/incidents/id/root-cause/analyze", { method: "POST", localControl: true })).rejects.toMatchObject({ status: 403, code: "RCA_WRITES_DISABLED", message: "RCA runs are disabled by the backend configuration." });
+  await expect(apiRequest("/incidents/id/impact/analyze", { method: "POST", localControl: true })).rejects.toMatchObject({ status: 409, code: "RCA_INPUT_INVALID", message: expect.stringContaining("Re-run deterministic RCA") });
 });
 
 test("surfaces validation failures and does not add local-control headers to ordinary requests", async () => {
@@ -172,6 +175,19 @@ test("runs deterministic RCA only through the protected incident action", async 
   await runIncidentRca("incident/unsafe");
   const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
   expect(url).toBe("http://localhost:8000/api/v1/incidents/incident%2Funsafe/root-cause/analyze");
+  expect(request.method).toBe("POST");
+  expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  expect(request.body).toBeUndefined();
+});
+
+test("runs impact analysis only through the protected incident action", async () => {
+  vi.stubEnv("NEXT_PUBLIC_NETRCA_PRESENTATION_MODE", "false");
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await runIncidentImpact("incident/unsafe");
+  const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(url).toBe("http://localhost:8000/api/v1/incidents/incident%2Funsafe/impact/analyze");
   expect(request.method).toBe("POST");
   expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
   expect(request.body).toBeUndefined();
