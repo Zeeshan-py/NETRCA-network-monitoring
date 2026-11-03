@@ -222,6 +222,34 @@ export type ImpactRun = {
   created_at: string;
   last_analyzed_at: string;
 };
+export type ExplanationSourceReference = {
+  source_type: "EVENT" | "ANOMALY" | "TOPOLOGY" | "RCA_RUN" | "IMPACT_RUN";
+  source_id: string;
+  timestamp?: string | null;
+};
+export type ExplanationSection = "summary" | "observed_facts" | "candidate_explanations" | "failure_chain_explanation" | "impact_explanation" | "uncertainties" | "missing_evidence" | "limitations";
+export type ExplanationClaim = {
+  claim_id: string;
+  section: ExplanationSection;
+  text: string;
+  evidence_references: ExplanationSourceReference[];
+};
+export type IncidentExplanation = {
+  explanation_version: "EXPLANATION_V1";
+  incident_id: string;
+  rca_run_id: string;
+  impact_run_id?: string | null;
+  model_name: string;
+  summary: ExplanationClaim[];
+  observed_facts: ExplanationClaim[];
+  candidate_explanations: ExplanationClaim[];
+  failure_chain_explanation: ExplanationClaim[];
+  impact_explanation: ExplanationClaim[];
+  uncertainties: ExplanationClaim[];
+  missing_evidence: ExplanationClaim[];
+  evidence_references: ExplanationSourceReference[];
+  limitations: ExplanationClaim[];
+};
 export type Page<T> = { data: T[]; pagination: { page: number; limit: number; total: number; pages: number } };
 export type EvidenceRecord = Record<string, unknown> & { id: string; timestamp?: string; detected_at?: string; severity?: string; event_type?: string; metric_type?: string; message?: string; name?: string; status?: string };
 export type Incident = { id: string; title: string; description?: string | null; severity: string; status: string; start_time: string; end_time?: string | null };
@@ -301,6 +329,8 @@ export async function apiRequest<T>(path: string, options: { signal?: AbortSigna
       DATABASE_UNAVAILABLE: "The database is unavailable. Check the backend database configuration.",
       GEMINI_DISABLED: "Gemini explanations are disabled by the backend configuration.",
       GEMINI_UNAVAILABLE: "The explanation provider is unavailable. Deterministic results remain available.",
+      RCA_REQUIRED: "Run deterministic RCA before requesting an explanation.",
+      ANALYSIS_NOT_READY: "Stored analysis changed or failed validation. Refresh and rerun deterministic analysis before requesting an explanation.",
       MININET_UNAVAILABLE: "The Mininet lab is unavailable. Run the backend in the approved Ubuntu environment with simulation enabled.",
       NETWORK_NOT_RUNNING: "Start the Mininet lab before using this operation.",
       NETWORK_ALREADY_RUNNING: "The Mininet lab is already running.",
@@ -471,5 +501,5 @@ export async function correlateEvidence(eventIds: string[], anomalyIds: string[]
   return apiRequest<Envelope<CorrelationRun>>("/events/correlate", { method: "POST", localControl: true, body: { event_ids: eventIds.slice(0, 100), anomaly_ids: anomalyIds.slice(0, Math.max(0, 100 - eventIds.length)) }, signal });
 }
 export async function generateIncidentExplanation(id: string, signal?: AbortSignal) {
-  return apiRequest<Envelope<Record<string, unknown>>>(`/ai/incidents/${encodeURIComponent(id)}/explain`, { method: "POST", localControl: true, signal });
+  return apiRequest<Envelope<IncidentExplanation>>(`/ai/incidents/${encodeURIComponent(id)}/explain`, { method: "POST", localControl: true, signal });
 }

@@ -371,6 +371,7 @@ All implementation and verification reports are consolidated in the [phase repor
 
 - [Semester Phase 8 deterministic RCA investigation](docs/reports/SEMESTER_PHASE8_RCA_INVESTIGATION.md)
 - [Semester Phase 9 impact and failure-chain analysis](docs/reports/SEMESTER_PHASE9_IMPACT_FAILURE_CHAIN.md)
+- [Semester Phase 10 evidence-grounded explanation](docs/reports/SEMESTER_PHASE10_EVIDENCE_EXPLANATION.md)
 - [Phase 3 network report](docs/reports/PHASE3_REPORT.md)
 - [Phase 8 anomaly report](docs/reports/PHASE8_REPORT.md)
 - [Phase 9 correlation report](docs/reports/PHASE9_REPORT.md)

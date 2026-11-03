@@ -74,6 +74,13 @@ structural chain. Explain that step order is not measured chronology and that
 user/application impact remains unknown without incident-scoped observations.
 Presentation mode is a static replay; real mode requires the impact write flag.
 
+For the explanation layer, open **Explanation Lab** and first show the trust
+boundary: the backend authors bounded claims, Gemini can only order claim IDs,
+and the backend renders the final response. Generate explicitly, expand a
+claim's evidence references, and show uncertainties and missing evidence. In
+presentation mode the result is a static no-Gemini fixture; real mode requires
+the Gemini flag, a backend-only key, current RCA, and an available provider.
+
 Keep the synthetic launcher available as the presentation fallback if Ubuntu,
 Open vSwitch, or Mininet is unavailable on the classroom machine.
 

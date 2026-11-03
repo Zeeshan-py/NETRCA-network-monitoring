@@ -180,16 +180,17 @@ test("loads incident evidence and distinguishes candidate scores from probabilit
   api.getIncident.mockResolvedValue({ ...incident, events: [{ id: "event-1", event_type: "INTERFACE_FAILURE", message: "Interface changed to DOWN", severity: "HIGH", timestamp: incident.start_time }], anomalies: [] });
   api.getIncidentRca.mockResolvedValue({ data: { result: { status: "CANDIDATES", candidates: [{ cause_type: "INTERFACE_FAILURE", score: 42, explanation: "Evidence supports an interface fault", supporting_evidence: [{}], contradictory_evidence: [] }] } } });
   api.getIncidentImpact.mockRejectedValue(new Error("No current impact result"));
-  api.generateIncidentExplanation.mockResolvedValue({ data: { summary: [{ claim_id: "C001", text: "An interface failure preceded the event.", evidence_references: [{ source_type: "EVENT", source_id: "event-1" }] }] } });
+  api.generateIncidentExplanation.mockResolvedValue({ data: { explanation_version: "EXPLANATION_V1", incident_id: incident.id, rca_run_id: "rca-1", impact_run_id: null, model_name: "test-model", summary: [{ claim_id: "C001", section: "summary", text: "An interface failure preceded the event.", evidence_references: [{ source_type: "EVENT", source_id: "event-1" }] }], observed_facts: [], candidate_explanations: [], failure_chain_explanation: [], impact_explanation: [], uncertainties: [], missing_evidence: [], limitations: [], evidence_references: [{ source_type: "EVENT", source_id: "event-1" }] } });
   render(<Home />);
   fireEvent.click(await screen.findByRole("button", { name: /Interface degradation/ }));
   expect(await screen.findByText("Evidence supports an interface fault")).toBeInTheDocument();
   expect(screen.getByText(/uncalibrated points, not probability/)).toBeInTheDocument();
   expect(screen.getByText("Impact and failure chain")).toBeInTheDocument();
   expect(screen.getByRole("alert")).toHaveTextContent("No current impact result");
-  fireEvent.click(screen.getByRole("button", { name: "Generate explanation" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open Explanation Lab" }));
+  fireEvent.click(screen.getByRole("button", { name: "Generate explanation with Gemini" }));
   expect(await screen.findByText("An interface failure preceded the event.")).toBeInTheDocument();
-  expect(api.generateIncidentExplanation).toHaveBeenCalledWith("incident-1");
+  expect(api.generateIncidentExplanation).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal));
   await waitFor(() => expect(api.getIncident).toHaveBeenCalledWith("incident-1", expect.any(AbortSignal)));
 });
 

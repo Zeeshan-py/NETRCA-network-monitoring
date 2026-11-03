@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, runIncidentImpact, runIncidentRca, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
+import { ApiError, apiRequest, collectEvidenceProbe, collectEvidenceSnapshot, correlateEvidence, detectStoredMetrics, generateIncidentExplanation, getFaults, getIncidentTopologyContext, getPage, getTopology, getTopologyGraph, injectFault, probeNetwork, recoverFault, resetFaults, resetNetwork, runIncidentImpact, runIncidentRca, startNetwork, stopNetwork, testNetworkConnectivity } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -188,6 +188,19 @@ test("runs impact analysis only through the protected incident action", async ()
   await runIncidentImpact("incident/unsafe");
   const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
   expect(url).toBe("http://localhost:8000/api/v1/incidents/incident%2Funsafe/impact/analyze");
+  expect(request.method).toBe("POST");
+  expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
+  expect(request.body).toBeUndefined();
+});
+
+test("requests an explanation only through the protected backend incident endpoint", async () => {
+  vi.stubEnv("NEXT_PUBLIC_NETRCA_PRESENTATION_MODE", "false");
+  vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000/api/v1");
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) });
+  vi.stubGlobal("fetch", fetchMock);
+  await generateIncidentExplanation("incident/unsafe");
+  const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(url).toBe("http://localhost:8000/api/v1/ai/incidents/incident%2Funsafe/explain");
   expect(request.method).toBe("POST");
   expect(new Headers(request.headers).get("X-NetRCA-Local-Control")).toBe("1");
   expect(request.body).toBeUndefined();

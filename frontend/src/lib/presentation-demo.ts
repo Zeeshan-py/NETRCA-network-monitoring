@@ -1,4 +1,4 @@
-import type { Envelope, GraphSummary, ImpactRun, IncidentDetail, IncidentTopologyContext, Monitoring, NetworkStatus, Topology } from "@/lib/api";
+import type { Envelope, GraphSummary, ImpactRun, IncidentDetail, IncidentExplanation, IncidentTopologyContext, Monitoring, NetworkStatus, Topology } from "@/lib/api";
 import labScenario from "../../../scenarios/netrca_lab_v1.json";
 
 export class PresentationDemoError extends Error {
@@ -264,14 +264,26 @@ export function presentationDemoResponse(path: string, method: "GET" | "POST" = 
   if (pathname === `/ai/incidents/${IDs.incident}/explain` && method === "POST") return {
     success: true,
     data: {
-      summary: [{ claim_id: "DEMO-C001", text: "The s1-to-s2 link failure preceded packet loss and downstream checkout timeouts on server1.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent }, { source_type: "ANOMALY", source_id: IDs.anomaly }] }],
-      observed_facts: [{ claim_id: "DEMO-C002", text: "The uplink is down and packet loss reached 100% in the synthetic evidence set.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent }, { source_type: "METRIC", source_id: IDs.lossMetric }] }],
-      candidate_explanations: [{ claim_id: "DEMO-C003", text: "The deterministic rules rank the failed uplink as the leading candidate; the score is not a probability.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent }] }],
-      failure_chain_explanation: [{ claim_id: "DEMO-C004", text: "The canonical topology supports a potential path from the failed inter-switch link to server1 and the checkout service.", evidence_references: [{ source_type: "EVENT", source_id: IDs.timeoutEvent }] }],
-      uncertainties: [{ claim_id: "DEMO-C005", text: "External customer impact was not independently measured.", evidence_references: [] }],
-      limitations: [{ claim_id: "DEMO-C006", text: "This explanation is a static presentation fixture; no Gemini request was made.", evidence_references: [] }],
-      provider: "STATIC_PRESENTATION_FIXTURE",
+      explanation_version: "EXPLANATION_V1",
+      incident_id: IDs.incident,
+      rca_run_id: rca.id,
+      impact_run_id: impact.id,
+      model_name: "STATIC_PRESENTATION_FIXTURE_NO_GEMINI",
+      summary: [{ claim_id: "C001", section: "summary", text: "The deterministic analysis ranks the s1-to-s2 link failure as the leading candidate for this synthetic incident.", evidence_references: [{ source_type: "RCA_RUN", source_id: rca.id, timestamp: rca.last_analyzed_at }] }],
+      observed_facts: [{ claim_id: "C002", section: "observed_facts", text: "Validated synthetic incident evidence directly reports the s1-to-s2 link as down.", evidence_references: [{ source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z" }] }],
+      candidate_explanations: [{ claim_id: "C003", section: "candidate_explanations", text: "The link is an evidence-supported candidate; its deterministic rule score is not a probability or confirmed cause.", evidence_references: [{ source_type: "RCA_RUN", source_id: rca.id, timestamp: rca.last_analyzed_at }] }],
+      failure_chain_explanation: [{ claim_id: "C004", section: "failure_chain_explanation", text: "The stored physical topology supports potential one-hop exposure from the failed link to its endpoints and mapped service.", evidence_references: [{ source_type: "TOPOLOGY", source_id: IDs.failedLink }] }],
+      impact_explanation: [{ claim_id: "C005", section: "impact_explanation", text: "The failed link is observed while endpoint and service exposure remain potential rather than confirmed outages.", evidence_references: [{ source_type: "IMPACT_RUN", source_id: impact.id, timestamp: impact.last_analyzed_at }] }],
+      uncertainties: [{ claim_id: "C006", section: "uncertainties", text: "User and application impact remains unknown and unverified.", evidence_references: [{ source_type: "IMPACT_RUN", source_id: impact.id, timestamp: impact.last_analyzed_at }] }],
+      missing_evidence: [{ claim_id: "C007", section: "missing_evidence", text: "No incident-scoped customer observation confirms checkout degradation.", evidence_references: [{ source_type: "IMPACT_RUN", source_id: impact.id, timestamp: impact.last_analyzed_at }] }],
+      limitations: [{ claim_id: "C008", section: "limitations", text: "This is a static presentation fixture; no Gemini request was made.", evidence_references: [{ source_type: "RCA_RUN", source_id: rca.id, timestamp: rca.last_analyzed_at }] }],
+      evidence_references: [
+        { source_type: "EVENT", source_id: IDs.failureEvent, timestamp: "2026-10-31T09:42:00Z" },
+        { source_type: "TOPOLOGY", source_id: IDs.failedLink },
+        { source_type: "RCA_RUN", source_id: rca.id, timestamp: rca.last_analyzed_at },
+        { source_type: "IMPACT_RUN", source_id: impact.id, timestamp: impact.last_analyzed_at },
+      ],
     },
-  };
+  } satisfies Envelope<IncidentExplanation>;
   throw new PresentationDemoError("This resource is not part of the synthetic presentation scenario.", 404, "DEMO_RESOURCE_NOT_FOUND");
 }
